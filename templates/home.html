@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Renewable Energy Forecasting System{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="relative bg-gradient-to-r from-accent-600 to-accent-800 text-white rounded-2xl overflow-hidden shadow-2xl mb-16">
+    <div class="absolute inset-0 opacity-30">
+        <img src="https://images.unsplash.com/photo-1701313992928-fd7f82b93927?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="w-full h-full object-cover" alt="Background">
+    </div>
+    <div class="absolute inset-0 bg-gradient-to-b from-transparent via-primary-900/50 to-primary-900/80"></div>
+    <div class="relative py-20 px-6 sm:px-12 max-w-7xl mx-auto">
+        <div class="flex flex-col md:flex-row items-center">
+            <div class="md:w-1/2 md:pr-8 mb-8 md:mb-0" data-aos="fade-right" data-aos-duration="1000">
+                <h1 class="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 leading-tight">
+                    <span class="block">AI-Powered</span>
+                    <span class="block text-primary-200">Renewable Energy</span>
+                    <span class="block">Forecasting</span>
+                </h1>
+                <p class="text-lg md:text-xl mb-8 text-primary-100">
+                    Optimize your energy planning with advanced machine learning predictions for wind and solar power generation.
+                </p>
+                <div class="flex flex-wrap gap-4">
+                    <a href="{{ url_for('register_plant') }}" class="inline-block bg-white text-primary-700 font-bold px-8 py-4 rounded-lg shadow-lg hover:shadow-primary-500/30 transform hover:scale-105 transition duration-300 ease-in-out">
+                        <i class="fas fa-solar-panel mr-2"></i> Register Plant
+                    </a>
+                    <a href="{{ url_for('login') }}" class="inline-block bg-primary-600 text-white font-bold px-8 py-4 rounded-lg border-2 border-primary-500 shadow-lg hover:shadow-primary-500/30 hover:bg-primary-700 transform hover:scale-105 transition duration-300 ease-in-out">
+                        <i class="fas fa-sign-in-alt mr-2"></i> Login
+                    </a>
+                </div>
+            </div>
+            <div class="md:w-1/2 flex justify-center" data-aos="fade-left" data-aos-duration="1000" data-aos-delay="200">
+                <div class="relative w-full max-w-md">
+                    <div class="absolute -top-4 -left-4 w-24 h-24 bg-primary-400 rounded-full opacity-70 animate-pulse-slow"></div>
+                    <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-secondary-400 rounded-full opacity-70 animate-pulse-slow" style="animation-delay: 1s;"></div>
+                    <img src="https://images.unsplash.com/photo-1723640103357-cd8e8f0cd10c?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" class="relative z-10 w-full rounded-xl shadow-2xl" alt="Solar and wind power">
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- <div class="absolute bottom-0 left-0 right-0">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="#f0f9ff" fill-opacity="1" d="M0,224L48,213.3C96,203,192,181,288,181.3C384,181,480,203,576,224C672,245,768,267,864,261.3C960,256,1056,224,1152,218.7C1248,213,1344,235,1392,245.3L1440,256L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path></svg>
+    </div> -->
+</div>
+
+<!-- Features Section -->
+<div class="container mx-auto px-4">
+    <h2 class="text-3xl font-bold text-primary-800 text-center mb-4" data-aos="fade-up">Key Features</h2>
+    <p class="text-primary-600 text-center mb-12 max-w-3xl mx-auto" data-aos="fade-up" data-aos-delay="100">
+        Our platform provides comprehensive tools to monitor, predict, and optimize your renewable energy generation.
+    </p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-16">
+        <!-- Feature 1 -->
+        <div class="bg-white rounded-xl shadow-xl p-8 border-t-4 border-primary-500 transform hover:-translate-y-2 hover:shadow-2xl transition duration-300" data-aos="fade-up" data-aos-delay="100">
+            <div class="text-primary-500 mb-6 bg-primary-50 w-16 h-16 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-primary-800 mb-3">Real-Time Weather Integration</h3>
+            <p class="text-gray-600">Our system integrates with real-time weather APIs to fetch the latest forecast data for your specific location.</p>
+        </div>
+
+        <!-- Feature 2 -->
+        <div class="bg-white rounded-xl shadow-xl p-8 border-t-4 border-primary-500 transform hover:-translate-y-2 hover:shadow-2xl transition duration-300" data-aos="fade-up" data-aos-delay="200">
+            <div class="text-primary-500 mb-6 bg-primary-50 w-16 h-16 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-primary-800 mb-3">AI-Powered Predictions</h3>
+            <p class="text-gray-600">Advanced machine learning models trained on historical data predict your renewable energy output with high accuracy.</p>
+        </div>
+
+        <!-- Feature 3 -->
+        <div class="bg-white rounded-xl shadow-xl p-8 border-t-4 border-primary-500 transform hover:-translate-y-2 hover:shadow-2xl transition duration-300" data-aos="fade-up" data-aos-delay="300">
+            <div class="text-primary-500 mb-6 bg-primary-50 w-16 h-16 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-primary-800 mb-3">Interactive Dashboard</h3>
+            <p class="text-gray-600">Visualize your energy generation forecasts with beautiful, interactive charts and graphs.</p>
+        </div>
+
+        <!-- Feature 4 -->
+        <div class="bg-white rounded-xl shadow-xl p-8 border-t-4 border-secondary-500 transform hover:-translate-y-2 hover:shadow-2xl transition duration-300" data-aos="fade-up" data-aos-delay="400">
+            <div class="text-secondary-500 mb-6 bg-secondary-50 w-16 h-16 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-primary-800 mb-3">Threshold Monitoring</h3>
+            <p class="text-gray-600">Set energy generation thresholds and receive recommendations when forecasts fall below expectations.</p>
+        </div>
+
+        <!-- Feature 5 -->
+        <div class="bg-white rounded-xl shadow-xl p-8 border-t-4 border-secondary-500 transform hover:-translate-y-2 hover:shadow-2xl transition duration-300" data-aos="fade-up" data-aos-delay="500">
+            <div class="text-secondary-500 mb-6 bg-secondary-50 w-16 h-16 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-primary-800 mb-3">Hourly & Daily Forecasts</h3>
+            <p class="text-gray-600">Get detailed hour-by-hour predictions as well as aggregated daily generation forecasts for both solar and wind power.</p>
+        </div>
+
+        <!-- Feature 6 -->
+        <div class="bg-white rounded-xl shadow-xl p-8 border-t-4 border-secondary-500 transform hover:-translate-y-2 hover:shadow-2xl transition duration-300" data-aos="fade-up" data-aos-delay="600">
+            <div class="text-secondary-500 mb-6 bg-secondary-50 w-16 h-16 rounded-xl flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-primary-800 mb-3">Historical Analysis</h3>
+            <p class="text-gray-600">Track and analyze your past energy generation to identify patterns and optimize performance.</p>
+        </div>
+    </div>
+</div>
+
+<!-- How It Works -->
+<div class="bg-primary-900 text-white py-16 relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320"><path fill="#f0f9ff" fill-opacity="1" d="M0,256L48,261.3C96,267,192,277,288,277.3C384,277,480,267,576,240C672,213,768,171,864,165.3C960,160,1056,192,1152,197.3C1248,203,1344,181,1392,170.7L1440,160L1440,0L1392,0C1344,0,1248,0,1152,0C1056,0,960,0,864,0C768,0,672,0,576,0C480,0,384,0,288,0C192,0,96,0,48,0L0,0Z"></path></svg>
+    </div>
+    <div class="container mx-auto px-4 pt-12 ">
+        <h2 class="text-3xl font-bold text-center mb-4 text-secondary-800" data-aos="fade-up">How It Works</h2>
+        <p class="text-primary-600 text-center mb-12 max-w-3xl mx-auto" data-aos="fade-up" data-aos-delay="100">
+            Our platform simplifies the process of energy forecasting in just a few easy steps
+        </p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-12 max-w-5xl mx-auto">
+            <!-- Step 1 -->
+            <div class="flex flex-col items-center text-center" data-aos="fade-up" data-aos-delay="100">
+                <div class="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center text-2xl font-bold mb-4">1</div>
+                <h3 class="text-xl font-semibold mb-2">Register Your Plant</h3>
+                <p class="text-primary-200">Register your solar or wind power plant with location details and generation targets.</p>
+            </div>
+            
+            <!-- Step 2 -->
+            <div class="flex flex-col items-center text-center" data-aos="fade-up" data-aos-delay="200">
+                <div class="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center text-2xl font-bold mb-4">2</div>
+                <h3 class="text-xl font-semibold mb-2">Get Forecasts</h3>
+                <p class="text-primary-200">Our AI models automatically generate accurate hourly and daily energy generation forecasts.</p>
+            </div>
+            
+            <!-- Step 3 -->
+            <div class="flex flex-col items-center text-center" data-aos="fade-up" data-aos-delay="300">
+                <div class="w-16 h-16 bg-primary-600 rounded-full flex items-center justify-center text-2xl font-bold mb-4">3</div>
+                <h3 class="text-xl font-semibold mb-2">Optimize Production</h3>
+                <p class="text-primary-200">Use our recommendations to optimize your energy production and plan for shortfalls.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CTA Section -->
+<div class="bg-gradient-to-br from-primary-50 to-primary-100 rounded-2xl p-12 text-center mx-4 lg:mx-auto max-w-6xl -mt-10 mb-16 shadow-2xl relative z-10" data-aos="fade-up">
+    <div class="absolute -top-5 -right-5 w-20 h-20 bg-white/30 rounded-full"></div>
+    <div class="absolute -bottom-7 -left-7 w-24 h-24 bg-primary-200/30 rounded-full"></div>
+    
+    <h2 class="text-3xl md:text-4xl font-bold text-primary-800 mb-4 relative z-10">Ready to optimize your renewable energy management?</h2>
+    <p class="text-primary-600 mb-8 max-w-2xl mx-auto relative z-10">Join our platform today and start making data-driven decisions for your wind and solar power plants.</p>
+    <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-6 relative z-10">
+        <a href="{{ url_for('register_plant') }}" class="inline-block bg-primary-600 text-white font-bold px-8 py-4 rounded-lg shadow-lg hover:bg-primary-700 hover:shadow-primary-500/40 transform hover:scale-105 transition duration-300">
+            <i class="fas fa-solar-panel mr-2"></i> Register Plant
+        </a>
+        <a href="{{ url_for('register') }}" class="inline-block bg-white text-primary-600 font-bold px-8 py-4 rounded-lg shadow-lg hover:bg-gray-50 hover:shadow-primary-500/30 transform hover:scale-105 transition duration-300">
+            <i class="fas fa-user-plus mr-2"></i> Create Account
+        </a>
+    </div>
+</div>
+{% endblock %}

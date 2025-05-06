@@ -1,0 +1,707 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - Renewable Energy Forecasting System{% endblock %}
+
+{% block extra_head %}
+<!-- Extra CSS for this page if needed -->
+<style>
+    .prediction-high {
+        color: #16a34a;
+    }
+    .prediction-medium {
+        color: #f59e0b;
+    }
+    .prediction-low {
+        color: #dc2626;
+    }
+    .tab-button {
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        border-top-left-radius: 0.5rem;
+        border-top-right-radius: 0.5rem;
+    }
+    .tab-button.active {
+        background-color: white;
+        color: #15803d;
+        border-top: 2px solid #16a34a;
+        border-left: 1px solid #e5e7eb;
+        border-right: 1px solid #e5e7eb;
+    }
+    .tab-button:not(.active) {
+        background-color: #f3f4f6;
+        color: #4b5563;
+    }
+    .tab-button:not(.active):hover {
+        background-color: #e5e7eb;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Dashboard Header -->
+    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-6">
+        <h1 class="text-3xl font-bold text-primary-800 mb-4 md:mb-0">Admin Dashboard</h1>
+        <div class="flex flex-wrap gap-3">
+            <button id="refreshData" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                </svg>
+                Refresh Data
+            </button>
+            <a href="{{ url_for('user_profile') }}" class="bg-secondary-500 hover:bg-secondary-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                My Profile
+            </a>
+            <a href="{{ url_for('plant_profile') }}" class="bg-primary-500 hover:bg-primary-600 text-white px-4 py-2 rounded-lg transition duration-200">
+                Manage Plants
+            </a>
+        </div>
+    </div>
+
+    <!-- Plant Selection -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h2 class="text-xl font-semibold text-primary-800 mb-4">Plant Selection</h2>
+        <div class="flex flex-wrap gap-4">
+            <div class="w-full md:w-1/3">
+                <label for="plant-select" class="block text-sm font-medium text-gray-700 mb-1">Select Plant</label>
+                <select id="plant-select" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="all">All Plants</option>
+                    {% for plant in plants %}
+                    <option value="{{ plant.id }}">{{ plant.name }} ({{ plant.type }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="w-full md:w-1/3">
+                <label for="date-range" class="block text-sm font-medium text-gray-700 mb-1">Date Range</label>
+                <select id="date-range" class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent">
+                    <option value="day">Today</option>
+                    <option value="week" selected>Last 7 days</option>
+                    <option value="month">Last 30 days</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overview Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
+        <!-- Total Plants -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-gray-500 text-sm">Total Plants</p>
+                    <h3 class="text-2xl font-bold text-primary-800">{{ plants|length }}</h3>
+                </div>
+                <div class="bg-primary-100 p-3 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Solar Plants -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-gray-500 text-sm">Solar Plants</p>
+                    <h3 class="text-2xl font-bold text-primary-800">{{ solar_plants|length }}</h3>
+                </div>
+                <div class="bg-primary-100 p-3 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Wind Plants -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-gray-500 text-sm">Wind Plants</p>
+                    <h3 class="text-2xl font-bold text-primary-800">{{ wind_plants|length }}</h3>
+                </div>
+                <div class="bg-primary-100 p-3 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Alerts -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <div class="flex justify-between items-start">
+                <div>
+                    <p class="text-gray-500 text-sm">Active Alerts</p>
+                    <h3 class="text-2xl font-bold text-danger-600">{{ recommendations|length }}</h3>
+                </div>
+                <div class="bg-danger-100 p-3 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-danger-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tabs for Solar/Wind -->
+    <div class="bg-white rounded-lg shadow-md overflow-hidden">
+        <div class="px-6 pt-6">
+            <div class="flex border-b">
+                <button id="tab-solar" class="tab-button active">Solar Energy</button>
+                <button id="tab-wind" class="tab-button">Wind Energy</button>
+                <button id="tab-combined" class="tab-button">Combined</button>
+            </div>
+        </div>
+        
+        <div id="content-solar" class="tab-content p-6">
+            <!-- Solar Content -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Solar Generation Chart -->
+                <div class="lg:col-span-2">
+                    <h3 class="text-lg font-semibold text-primary-800 mb-4">Solar Generation Forecast</h3>
+                    <div class="h-80">
+                        <canvas id="solarChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Solar Plant Efficiency -->
+                <div>
+                    <h3 class="text-lg font-semibold text-primary-800 mb-4">Plant Efficiency</h3>
+                    <div class="space-y-4">
+                        {% for plant in solar_plants %}
+                        <div class="bg-white border rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold">{{ plant.name }}</h4>
+                                <span class="text-sm text-gray-500">{{ plant.location }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <!-- <div class="bg-primary-600 h-2.5 rounded-full" style="width: {{ plant.efficiency }}%"></div> -->
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span class="text-xs text-gray-500">0%</span>
+                                <span class="text-xs font-medium text-primary-700">{{ plant.efficiency }}%</span>
+                                <span class="text-xs text-gray-500">100%</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Solar Prediction Table -->
+            <div>
+                <h3 class="text-lg font-semibold text-primary-800 mb-4">Daily Solar Predictions</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white">
+                        <thead class="bg-primary-50">
+                            <tr>
+                                <th class="py-3 px-4 text-left text-primary-800">Plant</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Date</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Predicted (kWh)</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Actual (kWh)</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prediction in solar_predictions %}
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="py-3 px-4">{{ prediction.plant_name }}</td>
+                                <td class="py-3 px-4">{{ prediction.date }}</td>
+                                <td class="py-3 px-4">{{ prediction.total_predicted_generation }}</td>
+                                <td class="py-3 px-4">{{ prediction.total_actual_generation or 'Pending' }}</td>
+                                <td class="py-3 px-4">
+                                    {% if prediction.recommendation_status %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-100 text-danger-800">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                        </svg>
+                                        Below Threshold
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        Meeting Threshold
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="content-wind" class="tab-content p-6 hidden">
+            <!-- Wind Content -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <!-- Wind Generation Chart -->
+                <div class="lg:col-span-2">
+                    <h3 class="text-lg font-semibold text-primary-800 mb-4">Wind Generation Forecast</h3>
+                    <div class="h-80">
+                        <canvas id="windChart"></canvas>
+                    </div>
+                </div>
+                
+                <!-- Wind Plant Efficiency -->
+                <div>
+                    <h3 class="text-lg font-semibold text-primary-800 mb-4">Plant Efficiency</h3>
+                    <div class="space-y-4">
+                        {% for plant in wind_plants %}
+                        <div class="bg-white border rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-semibold">{{ plant.name }}</h4>
+                                <span class="text-sm text-gray-500">{{ plant.location }}</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <!-- <div class="bg-primary-600 h-2.5 rounded-full" style="width: {{ plant.efficiency }}%"></div> -->
+                            </div>
+                            <div class="flex justify-between mt-1">
+                                <span class="text-xs text-gray-500">0%</span>
+                                <span class="text-xs font-medium text-primary-700">{{ plant.efficiency }}%</span>
+                                <span class="text-xs text-gray-500">100%</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Wind Prediction Table -->
+            <div>
+                <h3 class="text-lg font-semibold text-primary-800 mb-4">Daily Wind Predictions</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full bg-white">
+                        <thead class="bg-primary-50">
+                            <tr>
+                                <th class="py-3 px-4 text-left text-primary-800">Plant</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Date</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Predicted (kWh)</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Actual (kWh)</th>
+                                <th class="py-3 px-4 text-left text-primary-800">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for prediction in wind_predictions %}
+                            <tr class="border-b hover:bg-gray-50">
+                                <td class="py-3 px-4">{{ prediction.plant_name }}</td>
+                                <td class="py-3 px-4">{{ prediction.date }}</td>
+                                <td class="py-3 px-4">{{ prediction.total_predicted_generation }}</td>
+                                <td class="py-3 px-4">{{ prediction.total_actual_generation or 'Pending' }}</td>
+                                <td class="py-3 px-4">
+                                    {% if prediction.recommendation_status %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-100 text-danger-800">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                        </svg>
+                                        Below Threshold
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                        </svg>
+                                        Meeting Threshold
+                                    </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div id="content-combined" class="tab-content p-6 hidden">
+            <!-- Combined Content -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-primary-800 mb-4">Combined Energy Generation</h3>
+                <div class="h-80">
+                    <canvas id="combinedChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- All Alerts/Recommendations -->
+            <div>
+                <h3 class="text-lg font-semibold text-primary-800 mb-4">Active Alerts</h3>
+                
+                {% if recommendations %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {% for recommendation in recommendations %}
+                    <div class="bg-secondary-50 border-l-4 border-secondary-500 p-4 rounded-r-lg">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-secondary-800">{{ recommendation.plant_name }}</p>
+                                <p class="text-sm text-gray-600">{{ recommendation.date }}</p>
+                            </div>
+                            <span class="bg-secondary-500 text-white text-xs px-2 py-1 rounded-full">Alert</span>
+                        </div>
+                        <p class="text-secondary-600 mt-2">{{ recommendation.message }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="bg-primary-50 border-l-4 border-primary-500 p-4 rounded-r-lg mb-6">
+                    <p class="text-primary-700">No active alerts at this time. All plants are meeting their threshold requirements.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Add Chart.js library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// Tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+    // Get tab elements
+    const tabSolar = document.getElementById('tab-solar');
+    const tabWind = document.getElementById('tab-wind');
+    const tabCombined = document.getElementById('tab-combined');
+    
+    // Get content elements
+    const contentSolar = document.getElementById('content-solar');
+    const contentWind = document.getElementById('content-wind');
+    const contentCombined = document.getElementById('content-combined');
+    
+    // Tab click handlers
+    tabSolar.addEventListener('click', function() {
+        // Update active tab
+        tabSolar.classList.add('active');
+        tabWind.classList.remove('active');
+        tabCombined.classList.remove('active');
+        
+        // Show/hide content
+        contentSolar.classList.remove('hidden');
+        contentWind.classList.add('hidden');
+        contentCombined.classList.add('hidden');
+        
+        // Initialize solar chart if not already done
+        initSolarChart();
+    });
+    
+    tabWind.addEventListener('click', function() {
+        // Update active tab
+        tabSolar.classList.remove('active');
+        tabWind.classList.add('active');
+        tabCombined.classList.remove('active');
+        
+        // Show/hide content
+        contentSolar.classList.add('hidden');
+        contentWind.classList.remove('hidden');
+        contentCombined.classList.add('hidden');
+        
+        // Initialize wind chart if not already done
+        initWindChart();
+    });
+    
+    tabCombined.addEventListener('click', function() {
+        // Update active tab
+        tabSolar.classList.remove('active');
+        tabWind.classList.remove('active');
+        tabCombined.classList.add('active');
+        
+        // Show/hide content
+        contentSolar.classList.add('hidden');
+        contentWind.classList.add('hidden');
+        contentCombined.classList.remove('hidden');
+        
+        // Initialize combined chart if not already done
+        initCombinedChart();
+    });
+    
+    // Initialize charts
+    let solarChart = null;
+    let windChart = null;
+    let combinedChart = null;
+    
+    // Handle refresh button
+    const refreshButton = document.getElementById('refreshData');
+    refreshButton.addEventListener('click', function() {
+        // Reload all charts
+        if (solarChart) solarChart.destroy();
+        if (windChart) windChart.destroy();
+        if (combinedChart) combinedChart.destroy();
+        
+        // Re-initialize active chart
+        if (!contentSolar.classList.contains('hidden')) {
+            initSolarChart();
+        } else if (!contentWind.classList.contains('hidden')) {
+            initWindChart();
+        } else {
+            initCombinedChart();
+        }
+    });
+    
+    function initSolarChart() {
+        if (solarChart) return; // Chart already initialized
+        
+        const plantSelect = document.getElementById('plant-select');
+        let selectedPlantId = plantSelect.value;
+        if (selectedPlantId === 'all') {
+            // Get first solar plant
+            const solarOptions = Array.from(plantSelect.options).filter(opt => opt.textContent.includes('(Solar)'));
+            if (solarOptions.length > 0) {
+                selectedPlantId = solarOptions[0].value;
+            }
+        }
+        
+        if (selectedPlantId === 'all') return; // No solar plants
+        
+        fetch(`/api/solar_chart_data?plant_id=${selectedPlantId}`)
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('solarChart').getContext('2d');
+                
+                solarChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.dates,
+                        datasets: [
+                            {
+                                label: 'Predicted Generation (kWh)',
+                                data: data.predictions,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Actual Generation (kWh)',
+                                data: data.actuals,
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Threshold',
+                                data: Array(data.dates.length).fill(data.threshold),
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Generation (kWh)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Solar Power Generation Forecast',
+                                font: {
+                                    size: 18
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching solar chart data:', error);
+            });
+    }
+    
+    function initWindChart() {
+        if (windChart) return; // Chart already initialized
+        
+        const plantSelect = document.getElementById('plant-select');
+        let selectedPlantId = plantSelect.value;
+        if (selectedPlantId === 'all') {
+            // Get first wind plant
+            const windOptions = Array.from(plantSelect.options).filter(opt => opt.textContent.includes('(Wind)'));
+            if (windOptions.length > 0) {
+                selectedPlantId = windOptions[0].value;
+            }
+        }
+        
+        if (selectedPlantId === 'all') return; // No wind plants
+        
+        fetch(`/api/wind_chart_data?plant_id=${selectedPlantId}`)
+            .then(response => response.json())
+            .then(data => {
+                const ctx = document.getElementById('windChart').getContext('2d');
+                
+                windChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: data.dates,
+                        datasets: [
+                            {
+                                label: 'Predicted Generation (kWh)',
+                                data: data.predictions,
+                                borderColor: 'rgba(75, 192, 192, 1)',
+                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Actual Generation (kWh)',
+                                data: data.actuals,
+                                borderColor: 'rgba(153, 102, 255, 1)',
+                                backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                                tension: 0.1
+                            },
+                            {
+                                label: 'Threshold',
+                                data: Array(data.dates.length).fill(data.threshold),
+                                borderColor: 'rgba(255, 99, 132, 1)',
+                                borderDash: [5, 5],
+                                fill: false,
+                                pointRadius: 0
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Generation (kWh)'
+                                }
+                            },
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Wind Power Generation Forecast',
+                                font: {
+                                    size: 18
+                                }
+                            }
+                        }
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error fetching wind chart data:', error);
+            });
+    }
+    
+    function initCombinedChart() {
+        if (combinedChart) return; // Chart already initialized
+        
+        // Fetch data for both solar and wind
+        Promise.all([
+            fetch('/api/solar_chart_data?plant_id=all').then(res => res.json()),
+            fetch('/api/wind_chart_data?plant_id=all').then(res => res.json())
+        ])
+        .then(([solarData, windData]) => {
+            const ctx = document.getElementById('combinedChart').getContext('2d');
+            
+            // Combine dates (use the most recent 7 days)
+            const allDates = [...new Set([...solarData.dates, ...windData.dates])].sort();
+            const dates = allDates.slice(-7);
+            
+            // Prepare datasets
+            combinedChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: dates,
+                    datasets: [
+                        {
+                            label: 'Solar Generation (kWh)',
+                            data: dates.map(date => {
+                                const index = solarData.dates.indexOf(date);
+                                return index >= 0 ? solarData.predictions[index] : 0;
+                            }),
+                            backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                        },
+                        {
+                            label: 'Wind Generation (kWh)',
+                            data: dates.map(date => {
+                                const index = windData.dates.indexOf(date);
+                                return index >= 0 ? windData.predictions[index] : 0;
+                            }),
+                            backgroundColor: 'rgba(153, 102, 255, 0.7)',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: 'Generation (kWh)'
+                            }
+                        },
+                        x: {
+                            stacked: true,
+                            title: {
+                                display: true,
+                                text: 'Date'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Combined Energy Generation',
+                            font: {
+                                size: 18
+                            }
+                        }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching combined chart data:', error);
+        });
+    }
+    
+    // Plant selector change
+    document.getElementById('plant-select').addEventListener('change', function() {
+        // Reload the active chart
+        if (!contentSolar.classList.contains('hidden')) {
+            if (solarChart) solarChart.destroy();
+            solarChart = null;
+            initSolarChart();
+        } else if (!contentWind.classList.contains('hidden')) {
+            if (windChart) windChart.destroy();
+            windChart = null;
+            initWindChart();
+        }
+    });
+    
+    // Initialize the default chart (solar)
+    initSolarChart();
+});
+</script>
+{% endblock %} 

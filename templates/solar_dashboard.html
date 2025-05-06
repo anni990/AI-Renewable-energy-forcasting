@@ -1,0 +1,427 @@
+{% extends "base.html" %}
+
+{% block title %}Solar Dashboard - Renewable Energy Forecasting System{% endblock %}
+
+{% block extra_head %}
+<!-- Solar theme colors and styles -->
+<style>
+    :root {
+        --solar-primary: #7f7fd5; /* Periwinkle blue - replacing orange-red */
+        --solar-secondary: #86a8e7; /* Light blue-lavender - replacing light orange */
+        --solar-accent: #91eae4; /* Light turquoise - replacing yellow */
+        --solar-dark: #6366f1; /* Darker indigo - replacing darker orange */
+        --solar-light: #f5f7ff; /* Very light blue - replacing very light orange */
+    }
+    
+    .solar-bg-primary {
+        background-color: var(--solar-primary);
+    }
+    .solar-bg-secondary {
+        background-color: var(--solar-secondary);
+    }
+    .solar-bg-accent {
+        background-color: var(--solar-accent);
+    }
+    .solar-bg-light {
+        background-color: var(--solar-light);
+    }
+    .solar-text-primary {
+        color: var(--solar-primary);
+    }
+    .solar-text-dark {
+        color: var(--solar-dark);
+    }
+    .solar-border {
+        border-color: var(--solar-primary);
+    }
+    
+    .solar-card {
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 4px 6px rgba(230, 126, 34, 0.1);
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-top: 3px solid var(--solar-primary);
+        margin-bottom: 1.5rem;
+    }
+    
+    .solar-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 15px rgba(230, 126, 34, 0.2);
+    }
+    
+    .solar-gradient {
+        background: linear-gradient(135deg, var(--solar-primary) 0%, var(--solar-accent) 100%);
+    }
+    
+    .solar-btn {
+        background-color: var(--solar-primary);
+        color: white;
+        border-radius: 0.375rem;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        transition: background-color 0.2s;
+    }
+    
+    .solar-btn:hover {
+        background-color: var(--solar-dark);
+    }
+    
+    /* Button with white background - ensure text contrast */
+    .btn-white-solar {
+        background-color: white;
+        color: var(--solar-primary);
+        border: 1px solid var(--solar-light);
+    }
+    
+    .btn-white-solar:hover {
+        background-color: var(--solar-light);
+        color: var(--solar-dark);
+    }
+    
+    .prediction-high {
+        color: #16a34a;
+    }
+    .prediction-medium {
+        color: #f59e0b;
+    }
+    .prediction-low {
+        color: #dc2626;
+    }
+    
+    /* Solar themed stats */
+    .stat-card {
+        border-radius: 1rem;
+        padding: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 5px;
+        background-color: var(--solar-primary);
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Dashboard container */
+    .dashboard-container {
+        background-color: #f8fafc;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+    }
+    
+    /* Chart containers */
+    .chart-container {
+        background-color: white;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    /* Date selector styles */
+    .date-selector {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .date-selector select {
+        padding: 0.5rem;
+        border-radius: 0.375rem;
+        border: 1px solid #e2e8f0;
+        background-color: white;
+        color: #4b5563;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard-container space-y-6" data-plant-id="{{ plant.id if plant else '' }}">
+    <!-- Dashboard Header with Solar Gradient -->
+    <div class="solar-gradient text-white rounded-lg shadow-md p-6 mb-6">
+        <div class="flex flex-col md:flex-row md:justify-between md:items-center">
+            <div>
+                <h1 class="text-3xl font-bold mb-2">Solar Energy Dashboard</h1>
+                <p class="text-white opacity-90">Monitor and analyze your solar energy generation in real-time.</p>
+            </div>
+            <div class="flex flex-wrap gap-3 mt-4 md:mt-0">
+                <button id="refreshData" class="btn-white-solar px-4 py-2 rounded-lg transition duration-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd" />
+                    </svg>
+                    Refresh Data
+                </button>
+                <a href="{{ url_for('user_profile') }}" class="btn-white-solar px-4 py-2 rounded-lg transition duration-200">
+                    My Profile
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Stats Row -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <!-- Total Generation -->
+        <div class="stat-card bg-white">
+            <h3 class="text-gray-500 mb-1 text-sm">Today's Generation</h3>
+            <p class="text-3xl font-bold solar-text-primary mb-2">
+                {{ daily_solar_data[0].total_predicted_generation|float|round(1) if daily_solar_data and daily_solar_data|length > 0 else 0 }} kWh
+            </p>
+            <div class="flex items-center">
+                <span id="vsYesterday" class="text-gray-500 flex items-center text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
+                    </svg>
+                    Calculating...
+                </span>
+            </div>
+        </div>
+        
+        <!-- Capacity Utilization (Replacing Efficiency Rating) -->
+        <div class="stat-card bg-white">
+            <h3 class="text-gray-500 mb-1 text-sm">Capacity Utilization</h3>
+            <p class="text-3xl font-bold solar-text-primary mb-2">
+                {% set daylight_hours = 12 %}
+                {% set utilization = 0 %}
+                {% if solar_data and solar_data|length > 0 %}
+                    {% set sum_generation = 0 %}
+                    {% set count_hours = 0 %}
+                    {% for data in solar_data %}
+                        {% set hour = data.timestamp.hour %}
+                        {% if hour >= 7 and hour <= 18 %}
+                            {% set sum_generation = sum_generation + (data.predicted_generation if data.predicted_generation else 0) %}
+                            {% set count_hours = count_hours + 1 %}
+                        {% endif %}
+                    {% endfor %}
+                    {% if count_hours > 0 %}
+                        {% set avg_gen = sum_generation / count_hours %}
+                        {% if plant and plant.threshold_value %}
+                            {% set utilization = (avg_gen / (plant.threshold_value / daylight_hours) * 100)|float|round %}
+                        {% endif %}
+                    {% endif %}
+                {% endif %}
+                {{ utilization }}%
+            </p>
+            <div class="flex items-center">
+                <span class="text-sm 
+                    {% if utilization > 80 %}
+                        text-green-500
+                    {% elif utilization > 60 %}
+                        text-yellow-500
+                    {% else %}
+                        text-red-500
+                    {% endif %}"
+                >
+                    {% if utilization > 80 %}
+                        High Utilization
+                    {% elif utilization > 60 %}
+                        Moderate
+                    {% else %}
+                        Low Utilization
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+        
+        <!-- Weather Impact -->
+        <div class="stat-card bg-white">
+            <h3 class="text-gray-500 mb-1 text-sm">Weather Condition</h3>
+            <p class="text-3xl font-bold solar-text-primary mb-2" id="weather-condition">
+                Loading...
+            </p>
+            <div class="flex items-center">
+                <span class="text-sm text-gray-500" id="weather-impact">Checking weather impact...</span>
+            </div>
+        </div>
+        
+        <!-- Peak Generation -->
+        <div class="stat-card bg-white">
+            <h3 class="text-gray-500 mb-1 text-sm">Peak Generation Hour</h3>
+            <p class="text-3xl font-bold solar-text-primary mb-2" id="peak-hour">
+                {% set max_value = namespace(value=0, hour="") %}
+                {% for data in solar_data %}
+                    {% if data.timestamp.date() == today and data.predicted_generation and data.predicted_generation > max_value.value %}
+                        {% set max_value.value = data.predicted_generation %}
+                        {% set max_value.hour = data.timestamp.strftime('%H:%M') %}
+                    {% endif %}
+                {% endfor %}
+                {{ max_value.hour or 'N/A' }}
+            </p>
+            <div class="flex items-center">
+                <span class="text-sm text-gray-500" id="peak-output">{{ max_value.value|float|round(2) if max_value.value else 0 }} kWh peak output</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Content -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Hourly Forecast Chart -->
+        <div class="lg:col-span-2 solar-card p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold solar-text-primary">Hourly Solar Generation Forecast</h2>
+                <div class="date-selector">
+                    <label for="dateSelector" class="mr-2 text-gray-600">Select Date:</label>
+                    <select id="dateSelector" class="solar-text-primary border-solar-primary">
+                        <!-- Date options will be dynamically populated by JavaScript -->
+                    </select>
+                </div>
+            </div>
+            <div class="h-80">
+                <canvas id="hourlyChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Recommendations -->
+        <div class="solar-card p-6">
+            <h2 class="text-xl font-semibold solar-text-primary mb-4">Recommendations</h2>
+            
+            {% if recommendations %}
+                <div class="space-y-4">
+                    {% for recommendation in recommendations %}
+                    <div class="bg-solar-light border-l-4 border-solar-primary p-4 rounded-r-lg">
+                        <div class="flex justify-between items-start">
+                            <p class="font-semibold text-solar-dark">{{ recommendation.date }}</p>
+                            <span class="bg-solar-primary text-white text-xs px-2 py-1 rounded-full">Alert</span>
+                        </div>
+                        <p class="text-gray-700 mt-2">{{ recommendation.message }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="bg-green-50 border-l-4 border-green-500 p-4 rounded-r-lg">
+                    <p class="text-green-700">No recommendations at this time. Your solar generation forecasts are meeting threshold requirements.</p>
+                </div>
+            {% endif %}
+            
+            <!-- Generation Metrics Chart (replacing Efficiency Pie Chart) -->
+            <div class="mt-6">
+                <h3 class="text-lg font-medium solar-text-primary mb-3">Generation Metrics</h3>
+                <div class="h-48">
+                    <canvas id="metricsChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Daily Generation Chart -->
+    <div class="solar-card p-6">
+        <h2 class="text-xl font-semibold solar-text-primary mb-4">Daily Solar Generation Forecast</h2>
+        
+        <div class="mb-6 h-60">
+            <canvas id="dailyChart"></canvas>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full bg-white">
+                <thead class="bg-solar-light">
+                    <tr>
+                        <th class="py-3 px-4 text-left text-solar-dark">Date</th>
+                        <th class="py-3 px-4 text-left text-solar-dark">Predicted Generation (kWh)</th>
+                        <th class="py-3 px-4 text-left text-solar-dark">Actual Generation (kWh)</th>
+                        <th class="py-3 px-4 text-left text-solar-dark">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for prediction in daily_solar_data %}
+                    <tr class="border-b hover:bg-solar-light/30">
+                        <td class="py-3 px-4">{{ prediction.date.strftime('%Y-%m-%d') }}</td>
+                        <td class="py-3 px-4">{{ prediction.total_predicted_generation|float|round(2) }}</td>
+                        <td class="py-3 px-4">{{ prediction.total_actual_generation|float|round(2) if prediction.total_actual_generation else 'Pending' }}</td>
+                        <td class="py-3 px-4">
+                            {% if prediction.recommendation_status %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                Below Threshold
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                Meeting Threshold
+                            </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Weather Data & Details -->
+    <div class="solar-card p-6">
+        <h2 class="text-xl font-semibold solar-text-primary mb-4">Current Weather Conditions</h2>
+        <div id="weather-data" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Weather data will be populated by JavaScript -->
+            <div class="text-center p-4 bg-solar-light rounded-lg">
+                <p class="text-gray-500 mb-1">Loading weather data...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<!-- Add Chart.js library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Add data variables for charts -->
+<script type="text/javascript">
+    // Create variables outside the template blocks
+    var hourlyLabels = [];
+    var hourlyPredictions = [];
+    var hourlyActuals = [];
+    var dailyLabels = [];
+    var dailyPredictions = [];
+    var dailyActuals = [];
+    var dailyThresholds = [];
+    var efficiencyData = [];
+    
+    // Set the variable values inside separate script blocks
+    {% if solar_data %}
+        {% for data in solar_data %}
+        hourlyLabels.push("{{ data.timestamp.strftime('%H:%M') }}");
+        hourlyPredictions.push({{ data.predicted_generation|float or 0 }});
+        hourlyActuals.push({{ data.actual_generation|float or 0 }});
+        {% endfor %}
+    {% endif %}
+    
+    {% if daily_solar_data %}
+        {% for data in daily_solar_data %}
+        dailyLabels.push("{{ data.date.strftime('%Y-%m-%d') }}");
+        dailyPredictions.push({{ data.total_predicted_generation|float or 0 }});
+        dailyActuals.push({{ data.total_actual_generation|float or 0 }});
+        
+        // For efficiency pie chart
+        {% if plant and plant.threshold_value %}
+        var efficiencyValue = {{ (data.total_predicted_generation / plant.threshold_value * 100)|float|round }};
+        efficiencyData.push(efficiencyValue);
+        {% endif %}
+        {% endfor %}
+    {% endif %}
+    
+    {% if plant and plant.threshold_value %}
+        // Create threshold array
+        for (var i = 0; i < dailyLabels.length; i++) {
+            dailyThresholds.push({{ plant.threshold_value|float or 0 }});
+        }
+    {% endif %}
+</script>
+
+<!-- Load custom dashboard JavaScript -->
+<script src="{{ url_for('static', filename='js/solar_dashboard.js') }}"></script>
+{% endblock %} 

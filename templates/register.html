@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block title %}Register - Renewable Energy Forecasting System{% endblock %}
+
+{% block content %}
+<div class="flex justify-center items-center">
+    <div class="bg-white rounded-xl shadow-xl p-8 w-full max-w-md">
+        <h1 class="text-2xl font-bold text-primary-800 mb-6 text-center">Create Account</h1>
+        
+        <form method="POST" action="{{ url_for('register') }}">
+            <div class="mb-4">
+                <label for="username" class="block text-gray-700 font-medium mb-2">Username</label>
+                <input type="text" id="username" name="username" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition duration-200">
+            </div>
+            
+            <div class="mb-4">
+                <label for="email" class="block text-gray-700 font-medium mb-2">Email</label>
+                <input type="email" id="email" name="email" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition duration-200">
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-gray-700 font-medium mb-2">Account Type</label>
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="relative">
+                        <input type="radio" id="type_solar" name="plant_type" value="solar" class="sr-only peer" checked>
+                        <label for="type_solar" class="flex flex-col items-center p-3 border-2 rounded-lg cursor-pointer border-gray-300 peer-checked:border-primary-500 peer-checked:bg-primary-50 hover:bg-gray-50 transition-all duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mb-2 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            <span class="text-sm font-medium">Solar</span>
+                        </label>
+                    </div>
+                    <div class="relative">
+                        <input type="radio" id="type_wind" name="plant_type" value="wind" class="sr-only peer">
+                        <label for="type_wind" class="flex flex-col items-center p-3 border-2 rounded-lg cursor-pointer border-gray-300 peer-checked:border-primary-500 peer-checked:bg-primary-50 hover:bg-gray-50 transition-all duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mb-2 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                            </svg>
+                            <span class="text-sm font-medium">Wind</span>
+                        </label>
+                    </div>
+                    <div class="relative">
+                        <input type="radio" id="type_both" name="plant_type" value="both" class="sr-only peer">
+                        <label for="type_both" class="flex flex-col items-center p-3 border-2 rounded-lg cursor-pointer border-gray-300 peer-checked:border-primary-500 peer-checked:bg-primary-50 hover:bg-gray-50 transition-all duration-200">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 mb-2 text-primary-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                            </svg>
+                            <span class="text-sm font-medium">Admin</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Plant ID field - displayed only for non-admin (solar/wind) users -->
+            <div id="plant_id_container" class="mb-4">
+                <label for="plant_id" class="block text-gray-700 font-medium mb-2">Plant ID</label>
+                <input type="text" id="plant_id" name="plant_id" 
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition duration-200"
+                    placeholder="Enter the plant ID assigned by admin">
+                <p class="text-gray-500 text-sm mt-1">Contact administrator if you don't know your plant ID.</p>
+            </div>
+            
+            <div class="mb-4">
+                <label for="password" class="block text-gray-700 font-medium mb-2">Password</label>
+                <input type="password" id="password" name="password" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition duration-200">
+            </div>
+            
+            <div class="mb-6">
+                <label for="confirm_password" class="block text-gray-700 font-medium mb-2">Confirm Password</label>
+                <input type="password" id="confirm_password" name="confirm_password" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition duration-200">
+            </div>
+            
+            <button type="submit" 
+                class="w-full bg-primary-600 text-white py-3 px-4 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 transition duration-200 font-medium">
+                Create Account
+            </button>
+        </form>
+        
+        <div class="mt-6 text-center">
+            <p class="text-gray-600">Already have an account? 
+                <a href="{{ url_for('login') }}" class="text-primary-600 hover:text-primary-800 font-medium transition duration-200">
+                    Login here
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const plantTypeRadios = document.querySelectorAll('input[name="plant_type"]');
+        const plantIdContainer = document.getElementById('plant_id_container');
+        
+        // Function to toggle the plant ID field visibility
+        function togglePlantIdField() {
+            const selectedValue = document.querySelector('input[name="plant_type"]:checked').value;
+            
+            if (selectedValue === 'both') {
+                // Admin users don't need to select a plant
+                plantIdContainer.style.display = 'none';
+                document.getElementById('plant_id').removeAttribute('required');
+            } else {
+                // Regular users (solar/wind) need to select a plant
+                plantIdContainer.style.display = 'block';
+                document.getElementById('plant_id').setAttribute('required', 'required');
+            }
+        }
+        
+        // Initial setup
+        togglePlantIdField();
+        
+        // Add event listeners to radio buttons
+        plantTypeRadios.forEach(radio => {
+            radio.addEventListener('change', togglePlantIdField);
+        });
+    });
+</script>
+{% endblock %}
+{% endblock %} 

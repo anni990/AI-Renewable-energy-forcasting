@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Renewable Energy Forecasting System{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#f5f7ff',
+                            100: '#eef1ff',
+                            200: '#d8dcff',
+                            300: '#c6cafd',
+                            400: '#a5a8fa',
+                            500: '#8c8ef6',
+                            600: '#7f7fd5', /* Periwinkle blue - primary color */
+                            700: '#6d6db9',
+                            800: '#5c5c9c',
+                            900: '#4a4a7d',
+                            950: '#2d2d4a',
+                        },
+                        secondary: {
+                            50: '#f2f6ff',
+                            100: '#e6edff',
+                            200: '#c8daff',
+                            300: '#a9c4ff',
+                            400: '#86a8e7', /* Light blue-lavender - secondary color */
+                            500: '#6d92d6',
+                            600: '#5d7ec0',
+                            700: '#4c699f',
+                            800: '#3d5882',
+                            900: '#324767',
+                            950: '#1e2a3d',
+                        },
+                        accent: {
+                            50: '#f0fefe',
+                            100: '#dbfdfa',
+                            200: '#b8faf5',
+                            300: '#91eae4', /* Light turquoise - accent color */
+                            400: '#65d1cd',
+                            500: '#40b4b0',
+                            600: '#2d9290',
+                            700: '#267674',
+                            800: '#225e5d',
+                            900: '#1e4e4d',
+                            950: '#0f2c2c',
+                        },
+                        danger: {
+                            50: '#fef2f2',
+                            100: '#fee2e2',
+                            200: '#fecaca',
+                            300: '#fca5a5',
+                            400: '#f87171',
+                            500: '#ef4444',
+                            600: '#dc2626',
+                            700: '#b91c1c',
+                            800: '#991b1b',
+                            900: '#7f1d1d',
+                            950: '#450a0a',
+                        },
+                    },
+                    animation: {
+                        'float': 'float 3s ease-in-out infinite',
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'slide-in': 'slideIn 0.8s ease-out',
+                        'fade-in': 'fadeIn 0.8s ease-out',
+                        'bounce-slow': 'bounce 3s infinite',
+                    },
+                    keyframes: {
+                        float: {
+                            '0%, 100%': { transform: 'translateY(0)' },
+                            '50%': { transform: 'translateY(-10px)' }
+                        },
+                        slideIn: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        }
+                    },
+                    backgroundImage: {
+                        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+                    }
+                },
+            },
+        }
+    </script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- AOS Animation Library -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    {% block extra_head %}{% endblock %}
+    <style>
+        .nav-link {
+            position: relative;
+            overflow: hidden;
+        }
+        .nav-link:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0%;
+            height: 2px;
+            background-color: #91eae4; /* Updated to accent color */
+            transition: width 0.3s ease;
+        }
+        .nav-link:hover:after {
+            width: 100%;
+        }
+        .blur-bg {
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+        .wave-animation {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            overflow: hidden;
+            line-height: 0;
+            transform: rotate(180deg);
+        }
+        .wave-animation svg {
+            position: relative;
+            display: block;
+            width: calc(100% + 1.3px);
+            height: 60px;
+        }
+        .wave-animation .shape-fill {
+            fill: #FFFFFF;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-primary-50 via-white to-primary-100 flex flex-col min-h-screen">
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-primary-600 to-primary-800 text-white shadow-lg fixed w-full z-50">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <div class="p-2 bg-white bg-opacity-20 rounded-full">
+                        <i class="fas fa-bolt text-accent-300 text-2xl animate-pulse-slow"></i>
+                    </div>
+                    <div class="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-accent-300">RenewForecast</div>
+                </div>
+                <nav class="hidden md:block">
+                    <ul class="flex space-x-8">
+                        {% block navigation %}
+                        <li><a href="{{ url_for('home') }}" class="nav-link hover:text-accent-300 transition duration-300 flex items-center"><i class="fas fa-home mr-2"></i>Home</a></li>
+                        <li><a href="{{ url_for('register_plant') }}" class="nav-link hover:text-accent-300 transition duration-300 flex items-center"><i class="fas fa-solar-panel mr-2"></i>Register Plant</a></li>
+                        {% if current_user.is_authenticated %}
+                        <li><a href="{{ url_for('dashboard') }}" class="nav-link hover:text-accent-300 transition duration-300 flex items-center"><i class="fas fa-chart-line mr-2"></i>Dashboard</a></li>
+                        <li><a href="{{ url_for('logout') }}" class="nav-link hover:text-accent-300 transition duration-300 flex items-center"><i class="fas fa-sign-out-alt mr-2"></i>Logout</a></li>
+                        {% else %}
+                        <li><a href="{{ url_for('login') }}" class="nav-link hover:text-accent-300 transition duration-300 flex items-center"><i class="fas fa-sign-in-alt mr-2"></i>Login</a></li>
+                        <li><a href="{{ url_for('register') }}" class="nav-link hover:text-accent-300 transition duration-300 flex items-center"><i class="fas fa-user-plus mr-2"></i>Register</a></li>
+                        {% endif %}
+                        {% endblock %}
+                    </ul>
+                </nav>
+                
+                <!-- Mobile menu button -->
+                <div class="md:hidden">
+                    <button id="mobile-menu-button" class="text-white focus:outline-none hover:bg-primary-700 p-2 rounded-lg transition-colors">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Mobile menu -->
+            <div id="mobile-menu" class="hidden md:hidden mt-4 bg-primary-700 rounded-lg p-4 shadow-xl blur-bg animate-fade-in">
+                <nav class="flex flex-col space-y-4">
+                    <a href="{{ url_for('home') }}" class="text-white hover:text-accent-300 transition duration-300 py-2 flex items-center border-b border-primary-600 pb-2"><i class="fas fa-home mr-2"></i>Home</a>
+                    <a href="{{ url_for('register_plant') }}" class="text-white hover:text-accent-300 transition duration-300 py-2 flex items-center border-b border-primary-600 pb-2"><i class="fas fa-solar-panel mr-2"></i>Register Plant</a>
+                    {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('dashboard') }}" class="text-white hover:text-accent-300 transition duration-300 py-2 flex items-center border-b border-primary-600 pb-2"><i class="fas fa-chart-line mr-2"></i>Dashboard</a>
+                    <a href="{{ url_for('logout') }}" class="text-white hover:text-accent-300 transition duration-300 py-2 flex items-center"><i class="fas fa-sign-out-alt mr-2"></i>Logout</a>
+                    {% else %}
+                    <a href="{{ url_for('login') }}" class="text-white hover:text-accent-300 transition duration-300 py-2 flex items-center border-b border-primary-600 pb-2"><i class="fas fa-sign-in-alt mr-2"></i>Login</a>
+                    <a href="{{ url_for('register') }}" class="text-white hover:text-accent-300 transition duration-300 py-2 flex items-center"><i class="fas fa-user-plus mr-2"></i>Register</a>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Spacer for fixed header -->
+    <div class="pt-16"></div>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mx-auto px-4 mt-4">
+                {% for category, message in messages %}
+                    {% if category == 'success' %}
+                        <div class="bg-primary-100 border-l-4 border-primary-500 text-primary-700 p-4 mb-4 rounded shadow animate-slide-in" role="alert">
+                            <p class="font-bold">Success</p>
+                            <p>{{ message }}</p>
+                        </div>
+                    {% elif category == 'danger' %}
+                        <div class="bg-danger-100 border-l-4 border-danger-500 text-danger-700 p-4 mb-4 rounded shadow animate-slide-in" role="alert">
+                            <p class="font-bold">Error</p>
+                            <p>{{ message }}</p>
+                        </div>
+                    {% elif category == 'info' %}
+                        <div class="bg-secondary-100 border-l-4 border-accent-300 text-secondary-700 p-4 mb-4 rounded shadow animate-slide-in" role="alert">
+                            <p class="font-bold">Info</p>
+                            <p>{{ message }}</p>
+                        </div>
+                    {% else %}
+                        <div class="bg-gray-100 border-l-4 border-gray-500 text-gray-700 p-4 mb-4 rounded shadow animate-slide-in" role="alert">
+                            <p>{{ message }}</p>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="relative bg-gradient-to-r from-primary-800 to-primary-900 text-white pt-16 pb-8">
+        <!-- Wave effect above footer -->
+        <div class="wave-animation" style="top: -60px;">
+            <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" class="shape-fill"></path>
+            </svg>
+        </div>
+        
+        <div class="container mx-auto px-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+                <div class="md:col-span-1" data-aos="fade-right" data-aos-duration="800">
+                    <h3 class="text-xl font-bold mb-4 flex items-center">
+                        <i class="fas fa-bolt text-accent-300 mr-2"></i>
+                        RenewForecast
+                    </h3>
+                    <p class="text-primary-100 mb-4">Revolutionizing renewable energy forecasting with advanced AI technology for optimal power generation planning.</p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="bg-primary-700 hover:bg-primary-600 h-10 w-10 rounded-full flex items-center justify-center transition-colors duration-300">
+                            <i class="fab fa-facebook-f"></i>
+                        </a>
+                        <a href="#" class="bg-primary-700 hover:bg-primary-600 h-10 w-10 rounded-full flex items-center justify-center transition-colors duration-300">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="bg-primary-700 hover:bg-primary-600 h-10 w-10 rounded-full flex items-center justify-center transition-colors duration-300">
+                            <i class="fab fa-linkedin-in"></i>
+                        </a>
+                        <a href="#" class="bg-primary-700 hover:bg-primary-600 h-10 w-10 rounded-full flex items-center justify-center transition-colors duration-300">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <div data-aos="fade-up" data-aos-duration="800" data-aos-delay="100">
+                    <h3 class="text-xl font-bold mb-4 border-b border-primary-700 pb-2">Quick Links</h3>
+                    <ul class="space-y-2">
+                        <li><a href="{{ url_for('home') }}" class="text-primary-100 hover:text-accent-300 hover:translate-x-1 transition-all duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Home</a></li>
+                        <li><a href="{{ url_for('register_plant') }}" class="text-primary-100 hover:text-accent-300 hover:translate-x-1 transition-all duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Register Plant</a></li>
+                        <li><a href="{{ url_for('login') }}" class="text-primary-100 hover:text-accent-300 hover:translate-x-1 transition-all duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Login</a></li>
+                        <li><a href="{{ url_for('register') }}" class="text-primary-100 hover:text-accent-300 hover:translate-x-1 transition-all duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Register</a></li>
+                    </ul>
+                </div>
+                
+                <div data-aos="fade-up" data-aos-duration="800" data-aos-delay="200">
+                    <h3 class="text-xl font-bold mb-4 border-b border-primary-700 pb-2">Our Services</h3>
+                    <ul class="space-y-2">
+                        <li class="text-primary-100 hover:text-accent-300 transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Solar Energy Forecasting</li>
+                        <li class="text-primary-100 hover:text-accent-300 transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Wind Energy Forecasting</li>
+                        <li class="text-primary-100 hover:text-accent-300 transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Energy Generation Planning</li>
+                        <li class="text-primary-100 hover:text-accent-300 transition-colors duration-300 flex items-center"><i class="fas fa-chevron-right mr-2 text-xs"></i>Weather Data Integration</li>
+                    </ul>
+                </div>
+                
+                <div data-aos="fade-left" data-aos-duration="800" data-aos-delay="300">
+                    <h3 class="text-xl font-bold mb-4 border-b border-primary-700 pb-2">Contact Us</h3>
+                    <ul class="space-y-3">
+                        <li class="flex">
+                            <div class="bg-primary-700 h-8 w-8 rounded-full flex items-center justify-center mr-3">
+                                <i class="fas fa-map-marker-alt text-accent-300"></i>
+                            </div>
+                            <span class="text-primary-100">123 Energy Lane, Renewable City</span>
+                        </li>
+                        <li class="flex">
+                            <div class="bg-primary-700 h-8 w-8 rounded-full flex items-center justify-center mr-3">
+                                <i class="fas fa-phone text-accent-300"></i>
+                            </div>
+                            <span class="text-primary-100">+1 (555) 123-4567</span>
+                        </li>
+                        <li class="flex">
+                            <div class="bg-primary-700 h-8 w-8 rounded-full flex items-center justify-center mr-3">
+                                <i class="fas fa-envelope text-accent-300"></i>
+                            </div>
+                            <span class="text-primary-100">info@renewforecast.com</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="pt-6 border-t border-primary-700 text-center text-secondary-300">
+                <p>&copy; 2023 RenewForecast. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-button').addEventListener('click', function() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        });
+        
+        // Initialize AOS animation library
+        document.addEventListener('DOMContentLoaded', function() {
+            AOS.init();
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html> 
