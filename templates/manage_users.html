@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Renewable Energy Forecasting System{% endblock %}
+
+{% block extra_head %}
+<style>
+    .user-card {
+        background-color: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .table-container {
+        overflow-x: auto;
+        background-color: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+        display: none;
+    }
+    
+    .modal-content {
+        background-color: white;
+        border-radius: 0.75rem;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 500px;
+        padding: 1.5rem;
+    }
+    
+    .modal.active {
+        display: flex;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+    }
+    
+    .form-input {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 0.375rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Page Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-3xl font-bold text-gray-800">Manage Users</h1>
+        <button id="addUserBtn" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-lg transition duration-200 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+            </svg>
+            Add New User
+        </button>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="table-container mb-6">
+        <table class="min-w-full">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plant Type</th>
+                    <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plant</th>
+                    <th class="py-3 px-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                {% for user in users %}
+                <tr class="hover:bg-gray-50">
+                    <td class="py-3 px-4">
+                        <div class="flex items-center">
+                            <div class="h-10 w-10 flex-shrink-0 mr-3 bg-primary-100 text-primary-700 rounded-full flex items-center justify-center font-bold uppercase">
+                                {{ user.username[0] }}
+                            </div>
+                            <div>
+                                <div class="text-sm font-medium text-gray-900">{{ user.username }}</div>
+                                <div class="text-xs text-gray-500">Created: {{ user.created_at.strftime('%Y-%m-%d') }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-900">{{ user.email }}</td>
+                    <td class="py-3 px-4 text-sm">
+                        {% if user.role == 'admin' %}
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Admin</span>
+                        {% else %}
+                        <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">User</span>
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm text-gray-900">{{ user.plant_type if user.plant_type else 'N/A' }}</td>
+                    <td class="py-3 px-4 text-sm text-gray-900">
+                        {% if user.plant %}
+                        {{ user.plant.name }}
+                        {% else %}
+                        N/A
+                        {% endif %}
+                    </td>
+                    <td class="py-3 px-4 text-sm">
+                        <div class="flex space-x-2">
+                            <button 
+                                class="edit-user-btn text-blue-600 hover:text-blue-800" 
+                                data-id="{{ user.id }}"
+                                data-username="{{ user.username }}"
+                                data-email="{{ user.email }}"
+                                data-role="{{ user.role }}"
+                                data-plant-type="{{ user.plant_type or '' }}"
+                                data-plant-id="{{ user.plant_id or '' }}"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                </svg>
+                            </button>
+                            {% if user.id != current_user.id %}
+                            <button 
+                                class="delete-user-btn text-red-600 hover:text-red-800" 
+                                data-id="{{ user.id }}"
+                                data-username="{{ user.username }}"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Add New User</h2>
+                <button class="modal-close text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="addUserForm" method="POST" action="{{ url_for('manage_users') }}">
+                <input type="hidden" name="action" value="add">
+                
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" id="username" name="username" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" id="email" name="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" id="password" name="password" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="role" class="form-label">Role</label>
+                    <select id="role" name="role" class="form-input">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="plant_type" class="form-label">Plant Type</label>
+                    <select id="plant_type" name="plant_type" class="form-input">
+                        <option value="">None</option>
+                        <option value="solar">Solar</option>
+                        <option value="wind">Wind</option>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="plant_id" class="form-label">Plant</label>
+                    <select id="plant_id" name="plant_id" class="form-input">
+                        <option value="">None</option>
+                        {% for plant in plants %}
+                        <option value="{{ plant.id }}">{{ plant.name }} ({{ plant.type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="modal-close bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded transition duration-200">Cancel</button>
+                    <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded transition duration-200">Add User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Edit User</h2>
+                <button class="modal-close text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <form id="editUserForm" method="POST" action="{{ url_for('manage_users') }}">
+                <input type="hidden" name="action" value="edit">
+                <input type="hidden" id="edit_user_id" name="user_id" value="">
+                
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" id="edit_username" class="form-input" disabled>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_email" class="form-label">Email</label>
+                    <input type="email" id="edit_email" name="email" class="form-input" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_new_password" class="form-label">New Password (leave blank to keep current)</label>
+                    <input type="password" id="edit_new_password" name="new_password" class="form-input">
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_role" class="form-label">Role</label>
+                    <select id="edit_role" name="role" class="form-input">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_plant_type" class="form-label">Plant Type</label>
+                    <select id="edit_plant_type" name="plant_type" class="form-input">
+                        <option value="">None</option>
+                        <option value="solar">Solar</option>
+                        <option value="wind">Wind</option>
+                        <option value="both">Both</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit_plant_id" class="form-label">Plant</label>
+                    <select id="edit_plant_id" name="plant_id" class="form-input">
+                        <option value="">None</option>
+                        {% for plant in plants %}
+                        <option value="{{ plant.id }}">{{ plant.name }} ({{ plant.type }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="modal-close bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded transition duration-200">Cancel</button>
+                    <button type="submit" class="bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded transition duration-200">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Delete User Modal -->
+    <div id="deleteUserModal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold text-gray-800">Delete User</h2>
+                <button class="modal-close text-gray-500 hover:text-gray-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="text-gray-700 mb-6">
+                <p>Are you sure you want to delete the user: <span id="delete_username" class="font-semibold"></span>?</p>
+                <p class="mt-2 text-red-600 text-sm">This action cannot be undone.</p>
+            </div>
+            <form id="deleteUserForm" method="POST" action="{{ url_for('manage_users') }}">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" id="delete_user_id" name="user_id" value="">
+                
+                <div class="flex justify-end space-x-3 mt-6">
+                    <button type="button" class="modal-close bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded transition duration-200">Cancel</button>
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded transition duration-200">Delete User</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Modal functionality
+        const addUserBtn = document.getElementById('addUserBtn');
+        const editUserBtns = document.querySelectorAll('.edit-user-btn');
+        const deleteUserBtns = document.querySelectorAll('.delete-user-btn');
+        const modalCloseBtns = document.querySelectorAll('.modal-close');
+        
+        // Open Add User modal
+        addUserBtn.addEventListener('click', function() {
+            document.getElementById('addUserModal').classList.add('active');
+        });
+        
+        // Open Edit User modal
+        editUserBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const userId = this.getAttribute('data-id');
+                const username = this.getAttribute('data-username');
+                const email = this.getAttribute('data-email');
+                const role = this.getAttribute('data-role');
+                const plantType = this.getAttribute('data-plant-type');
+                const plantId = this.getAttribute('data-plant-id');
+                
+                // Populate form fields
+                document.getElementById('edit_user_id').value = userId;
+                document.getElementById('edit_username').value = username;
+                document.getElementById('edit_email').value = email;
+                document.getElementById('edit_role').value = role;
+                document.getElementById('edit_plant_type').value = plantType;
+                document.getElementById('edit_plant_id').value = plantId;
+                
+                // Show modal
+                document.getElementById('editUserModal').classList.add('active');
+            });
+        });
+        
+        // Open Delete User modal
+        deleteUserBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const userId = this.getAttribute('data-id');
+                const username = this.getAttribute('data-username');
+                
+                // Populate modal content
+                document.getElementById('delete_user_id').value = userId;
+                document.getElementById('delete_username').textContent = username;
+                
+                // Show modal
+                document.getElementById('deleteUserModal').classList.add('active');
+            });
+        });
+        
+        // Close modals
+        modalCloseBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const modal = this.closest('.modal');
+                modal.classList.remove('active');
+            });
+        });
+        
+        // Close modals when clicking outside content
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.classList.remove('active');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %} 

@@ -68,10 +68,16 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get today's date in YYYY-MM-DD format
         const today = new Date().toISOString().split('T')[0];
         
+        console.log(`Updating peak hour data for today (${today}), plant ID: ${plantId}`);
+        
         // Fetch hourly data for today
         fetch(`/api/hourly_solar_data?date=${today}&plant_id=${plantId}`)
-            .then(response => response.json())
+            .then(response => {
+                console.log(`Peak hour response status: ${response.status}`);
+                return response.json();
+            })
             .then(data => {
+                console.log('Peak hour data received:', data);
                 if (data.success && data.predictions && data.hours) {
                     // Find the peak hour
                     let maxVal = 0;
@@ -84,6 +90,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }
                     
+                    console.log(`Found peak hour: ${peakHour} with value: ${maxVal}`);
+                    
                     // Update the DOM elements
                     const peakHourElement = document.getElementById('peak-hour');
                     const peakOutputElement = document.getElementById('peak-output');
@@ -91,6 +99,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (peakHourElement && peakHour !== 'N/A') {
                         peakHourElement.textContent = peakHour;
                         peakOutputElement.textContent = `${maxVal.toFixed(2)} kWh peak output`;
+                        console.log('Peak hour updated in UI');
                     }
                 }
             })
@@ -273,15 +282,23 @@ document.addEventListener('DOMContentLoaded', function() {
                     hourlyChart.update();
                 }
                 
+                console.log(`Fetching hourly solar data for date: ${selectedDate}, plant ID: ${plantId}`);
+                
                 // Make AJAX request to get hourly data for selected date
                 fetch(`/api/hourly_solar_data?date=${selectedDate}&plant_id=${plantId}`)
-                    .then(response => response.json())
+                    .then(response => {
+                        console.log(`Response status: ${response.status}`);
+                        return response.json();
+                    })
                     .then(data => {
+                        console.log('Hourly data received:', data);
                         if (data.success) {
                             // Update chart data
                             hourlyChart.data.labels = data.hours;
                             hourlyChart.data.datasets[0].data = data.predictions;
                             hourlyChart.data.datasets[1].data = data.actuals;
+                            
+                            console.log(`Hourly data: ${data.hours.length} hours, ${data.predictions.length} predictions`);
                             
                             // For future dates, actual generation will be empty, so update the label
                             const today = new Date();

@@ -3,11 +3,21 @@
 {% block title %}Login - Renewable Energy Forecasting System{% endblock %}
 
 {% block content %}
-<div class="flex justify-center items-center">
+<div class="flex justify-center items-center" id="login-content">
     <div class="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
         <h1 class="text-2xl font-bold text-primary-800 mb-6 text-center">Login</h1>
         
-        <form method="POST" action="{{ url_for('login') }}">
+        <!-- Loader overlay (hidden by default) -->
+        <div id="loader-overlay" class="fixed inset-0 z-50 hidden">
+            <!-- Semi-transparent backdrop -->
+            <div class="absolute inset-0 bg-black bg-opacity-50 backdrop-filter backdrop-blur-sm"></div>
+            <!-- Centered loader -->
+            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <img src="{{ url_for('static', filename='loader/loader_1.gif') }}" alt="Loading..." class="w-40 h-40">
+            </div>
+        </div>
+        
+        <form id="login-form" method="POST" action="{{ url_for('login') }}">
             <div class="mb-4">
                 <label for="username" class="block text-gray-700 font-medium mb-2">Username</label>
                 <input type="text" id="username" name="username" required
@@ -20,7 +30,7 @@
                     class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent transition duration-200">
             </div>
             
-            <button type="submit" 
+            <button type="submit" id="login-button"
                 class="w-full bg-primary-600 text-white py-2 px-4 rounded-lg hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-opacity-50 transition duration-200 font-medium">
                 Login
             </button>
@@ -35,4 +45,44 @@
         </div>
     </div>
 </div>
+
+<script>
+    // Add event listener when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        const loginForm = document.getElementById('login-form');
+        const loaderOverlay = document.getElementById('loader-overlay');
+        
+        if (loginForm && loaderOverlay) {
+            loginForm.addEventListener('submit', function(event) {
+                // Show the loader overlay
+                loaderOverlay.classList.remove('hidden');
+                
+                // Store the submission time
+                const submissionTime = new Date().getTime();
+                
+                // Prevent the default form submission
+                event.preventDefault();
+                
+                // Create a function to submit the form
+                const submitForm = () => {
+                    // Calculate elapsed time since submission
+                    const currentTime = new Date().getTime();
+                    const elapsedTime = currentTime - submissionTime;
+                    
+                    // Check if 5 seconds have passed
+                    if (elapsedTime >= 5000) {
+                        // If 5 seconds have passed, submit the form
+                        loginForm.submit();
+                    } else {
+                        // If not, wait until 5 seconds have passed
+                        setTimeout(submitForm, 5000 - elapsedTime);
+                    }
+                };
+                
+                // Call the submit function (it will handle the timing)
+                submitForm();
+            });
+        }
+    });
+</script>
 {% endblock %} 

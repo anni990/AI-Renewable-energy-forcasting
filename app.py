@@ -5,11 +5,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.sql import func
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
-import json
-
 # Load environment variables from .env file
 load_dotenv()
 
@@ -339,9 +338,28 @@ def login():
                             print("Database update completed")
                         
                         elif plant.type == 'wind':
-                            print("Wind plant processing not yet implemented")
-                            # Wind prediction logic will be implemented later
-                            pass
+                            print("Processing wind plant predictions...")
+                            # Import wind-specific modules
+                            from ml_pipeline.fetch_weather import fetch_wind_weather_data
+                            from ml_pipeline.predict_hourly import predict_hourly_generation
+                            from ml_pipeline.aggregate_daily import aggregate_daily_generation, save_predictions_to_db
+                            
+                            # Get wind-specific weather data
+                            wind_weather_data = fetch_wind_weather_data(location=plant.location)
+                            print(f"Fetched {len(wind_weather_data)} wind weather records")
+                            
+                            # Predict hourly generation
+                            hourly_predictions = predict_hourly_generation(wind_weather_data, "wind", plant.id)
+                            print(f"Generated {len(hourly_predictions)} hourly wind predictions")
+                            
+                            # Aggregate to daily predictions
+                            daily_predictions = aggregate_daily_generation(hourly_predictions, plant.threshold_value)
+                            print(f"Aggregated to {len(daily_predictions)} daily wind predictions")
+                            
+                            # Save to database
+                            print("Saving wind predictions to database...")
+                            save_predictions_to_db(hourly_predictions, daily_predictions, plant.id, None, "wind")
+                            print("Wind database update completed")
                     else:
                         print(f"No plant found with ID: {user.plant_id}")
                 else:
@@ -367,159 +385,353 @@ def logout():
 @app.route('/dashboard')
 @login_required
 def dashboard():
-    """Route for user dashboard based on their plant type"""
-    # Get user's plant type
-    plant_type = current_user.plant_type
-    
-    if plant_type == 'solar':
-        # Get today's date
-        today = datetime.now().date()
-        
-        # Fetch solar plant data for today
-        solar_data = HourlySolarPrediction.query.filter_by(plant_id=current_user.plant_id)\
-            .filter(db.func.date(HourlySolarPrediction.timestamp) == today)\
-            .order_by(HourlySolarPrediction.timestamp.desc()).all()
-        
-        # If no data for today, get the most recent 24 hours
-        if not solar_data:
-            solar_data = HourlySolarPrediction.query.filter_by(plant_id=current_user.plant_id)\
-                .order_by(HourlySolarPrediction.timestamp.desc()).limit(24).all()
-        
-        plant = Plant.query.get(current_user.plant_id)
-        
-        # Get daily predictions for charts - get the latest 6 dates
-        daily_solar_data = DailySolarPrediction.query.filter_by(plant_id=current_user.plant_id)\
-            .order_by(DailySolarPrediction.date.desc()).limit(6).all()
-        
-        # Generate recommendations
-        recommendations = []
-        for data in daily_solar_data:
-            if data.recommendation_status:
-                recommendations.append({
-                    'date': data.date,
-                    'message': data.recommendation_message or f"Solar generation below threshold ({data.total_predicted_generation:.2f} kWh). Consider backup power."
-                })
-        
-        return render_template('solar_dashboard.html', 
-                              solar_data=solar_data, 
-                              plant=plant,
-                              recommendations=recommendations,
-                              daily_solar_data=daily_solar_data,
-                              today=today)
-    
-    elif plant_type == 'wind':
-        # Get today's date
-        today = datetime.now().date()
-        
-        # Fetch wind plant data for today
-        wind_data = HourlyWindPrediction.query.filter_by(plant_id=current_user.plant_id)\
-            .filter(db.func.date(HourlyWindPrediction.timestamp) == today)\
-            .order_by(HourlyWindPrediction.timestamp.desc()).all()
-            
-        # If no data for today, get the most recent 24 hours
-        if not wind_data:
-            wind_data = HourlyWindPrediction.query.filter_by(plant_id=current_user.plant_id)\
-                .order_by(HourlyWindPrediction.timestamp.desc()).limit(24).all()
-        
-        plant = Plant.query.get(current_user.plant_id)
-        
-        # Get daily predictions for charts - get the latest 6 dates
-        daily_wind_data = DailyWindPrediction.query.filter_by(plant_id=current_user.plant_id)\
-            .order_by(DailyWindPrediction.date.desc()).limit(6).all()
-        
-        # Generate recommendations
-        recommendations = []
-        for data in daily_wind_data:
-            if data.recommendation_status:
-                recommendations.append({
-                    'date': data.date,
-                    'message': data.recommendation_message or f"Wind generation below threshold ({data.total_predicted_generation:.2f} kWh). Consider backup power."
-                })
-        
-        return render_template('wind_dashboard.html', 
-                              wind_data=wind_data, 
-                              plant=plant,
-                              recommendations=recommendations,
-                              daily_wind_data=daily_wind_data,
-                              today=today)
-    
-    elif plant_type == 'both':
-        # This is an admin user, show both solar and wind data
+    """Dashboard route - redirects to appropriate dashboard based on user role and plant type"""
+    # Admin sees a different dashboard
+    if current_user.role == 'admin':
+        # Get all plants
         plants = Plant.query.all()
         
-        # Get distinct lists of plants by type
+        # Get today's date
+        today = datetime.utcnow().date()
+        
+        # Get plant lists for each type
         solar_plants = Plant.query.filter_by(type='solar').all()
         wind_plants = Plant.query.filter_by(type='wind').all()
         
-        # Get recent solar and wind predictions
+        # Get daily predictions for solar plants
         solar_predictions = db.session.query(
-            Plant.name.label('plant_name'),
-            DailySolarPrediction.date,
-            DailySolarPrediction.total_predicted_generation,
-            DailySolarPrediction.total_actual_generation,
-            DailySolarPrediction.recommendation_status
-        ).join(DailySolarPrediction).order_by(DailySolarPrediction.date.desc()).limit(10).all()
+            DailySolarPrediction,
+            Plant.name.label('plant_name')
+        ).join(Plant).filter(
+            DailySolarPrediction.date >= today
+        ).order_by(DailySolarPrediction.date, Plant.name).all()
         
+        # Format solar predictions for display
+        formatted_solar_predictions = []
+        for prediction, plant_name in solar_predictions:
+            formatted_solar_predictions.append({
+                'plant_name': plant_name,
+                'date': prediction.date.strftime('%Y-%m-%d'),
+                'total_predicted_generation': round(prediction.total_predicted_generation, 2) if prediction.total_predicted_generation else 0,
+                'total_actual_generation': round(prediction.total_actual_generation, 2) if prediction.total_actual_generation else None,
+                'recommendation_status': prediction.recommendation_status,
+                'recommendation_message': prediction.recommendation_message
+            })
+        
+        # Get daily predictions for wind plants
         wind_predictions = db.session.query(
-            Plant.name.label('plant_name'),
-            DailyWindPrediction.date,
-            DailyWindPrediction.total_predicted_generation,
-            DailyWindPrediction.total_actual_generation,
-            DailyWindPrediction.recommendation_status
-        ).join(DailyWindPrediction).order_by(DailyWindPrediction.date.desc()).limit(10).all()
+            DailyWindPrediction,
+            Plant.name.label('plant_name')
+        ).join(Plant).filter(
+            DailyWindPrediction.date >= today
+        ).order_by(DailyWindPrediction.date, Plant.name).all()
         
-        # Generate recommendations/alerts
-        recommendations = []
+        # Format wind predictions for display
+        formatted_wind_predictions = []
+        for prediction, plant_name in wind_predictions:
+            formatted_wind_predictions.append({
+                'plant_name': plant_name,
+                'date': prediction.date.strftime('%Y-%m-%d'),
+                'total_predicted_generation': round(prediction.total_predicted_generation, 2) if prediction.total_predicted_generation else 0,
+                'total_actual_generation': round(prediction.total_actual_generation, 2) if prediction.total_actual_generation else None,
+                'recommendation_status': prediction.recommendation_status,
+                'recommendation_message': prediction.recommendation_message
+            })
         
-        # Get solar plants below threshold
-        solar_alerts = db.session.query(
-            Plant.name.label('plant_name'),
+        # Get hourly predictions for today for all solar plants
+        solar_hourly = db.session.query(
+            HourlySolarPrediction,
+            Plant.name.label('plant_name')
+        ).join(Plant).filter(
+            func.date(HourlySolarPrediction.timestamp) == today
+        ).order_by(HourlySolarPrediction.timestamp, Plant.name).all()
+        
+        # Format hourly solar data for charts
+        formatted_solar_hourly = []
+        for prediction, plant_name in solar_hourly:
+            formatted_solar_hourly.append({
+                'plant_name': plant_name,
+                'hour': prediction.timestamp.strftime('%H:%M'),
+                'timestamp': prediction.timestamp.strftime('%Y-%m-%d %H:%M'),
+                'predicted_generation': round(prediction.predicted_generation, 2) if prediction.predicted_generation else 0,
+                'actual_generation': round(prediction.actual_generation, 2) if prediction.actual_generation else 0
+            })
+        
+        # Get hourly predictions for today for all wind plants
+        wind_hourly = db.session.query(
+            HourlyWindPrediction,
+            Plant.name.label('plant_name')
+        ).join(Plant).filter(
+            func.date(HourlyWindPrediction.timestamp) == today
+        ).order_by(HourlyWindPrediction.timestamp, Plant.name).all()
+        
+        # Format hourly wind data for charts
+        formatted_wind_hourly = []
+        for prediction, plant_name in wind_hourly:
+            formatted_wind_hourly.append({
+                'plant_name': plant_name,
+                'hour': prediction.timestamp.strftime('%H:%M'),
+                'timestamp': prediction.timestamp.strftime('%Y-%m-%d %H:%M'),
+                'predicted_generation': round(prediction.predicted_generation, 2) if prediction.predicted_generation else 0,
+                'actual_generation': round(prediction.actual_generation, 2) if prediction.actual_generation else 0
+            })
+            
+        # Get solar recommendations/alerts
+        solar_recommendations = db.session.query(
+            DailySolarPrediction,
+            Plant.name.label('plant_name')
+        ).join(Plant).filter(
+            DailySolarPrediction.date >= today,
+            DailySolarPrediction.recommendation_status == True
+        ).order_by(DailySolarPrediction.date).all()
+        
+        # Format solar recommendations
+        formatted_solar_recommendations = []
+        for recommendation, plant_name in solar_recommendations:
+            formatted_solar_recommendations.append({
+                'plant_name': plant_name,
+                'date': recommendation.date.strftime('%Y-%m-%d'),
+                'message': recommendation.recommendation_message or 'Energy generation below threshold'
+            })
+            
+        # Get wind recommendations/alerts
+        wind_recommendations = db.session.query(
+            DailyWindPrediction,
+            Plant.name.label('plant_name')
+        ).join(Plant).filter(
+            DailyWindPrediction.date >= today,
+            DailyWindPrediction.recommendation_status == True
+        ).order_by(DailyWindPrediction.date).all()
+        
+        # Format wind recommendations
+        formatted_wind_recommendations = []
+        for recommendation, plant_name in wind_recommendations:
+            formatted_wind_recommendations.append({
+                'plant_name': plant_name,
+                'date': recommendation.date.strftime('%Y-%m-%d'),
+                'message': recommendation.recommendation_message or 'Energy generation below threshold'
+            })
+            
+        # Get available dates for hourly data selection
+        available_dates = db.session.query(
+            func.date(HourlySolarPrediction.timestamp).label('date')
+        ).distinct().order_by(
+            func.date(HourlySolarPrediction.timestamp).desc()
+        ).limit(7).all()
+        
+        date_options = [date[0].strftime('%Y-%m-%d') for date in available_dates]
+        
+        # Prepare data for daily charts
+        # Solar daily chart data - get last 7 days
+        solar_daily_data_query = db.session.query(
             DailySolarPrediction.date,
-            DailySolarPrediction.total_predicted_generation,
-            Plant.threshold_value,
-            DailySolarPrediction.recommendation_message.label('message')
-        ).join(DailySolarPrediction)\
-         .filter(DailySolarPrediction.recommendation_status == True)\
-         .order_by(DailySolarPrediction.date.desc())\
-         .limit(5).all()
+            func.sum(DailySolarPrediction.total_predicted_generation).label('predicted'),
+            func.sum(DailySolarPrediction.total_actual_generation).label('actual')
+        ).group_by(DailySolarPrediction.date).order_by(DailySolarPrediction.date.desc()).limit(7).all()
         
-        for alert in solar_alerts:
-            recommendations.append({
-                'plant_name': alert.plant_name,
-                'date': alert.date.strftime('%Y-%m-%d'),
-                'message': alert.message or f"Solar generation below threshold ({alert.total_predicted_generation:.2f} < {alert.threshold_value:.2f} kWh)."
-            })
+        # Add fallback data if no results
+        if not solar_daily_data_query:
+            print("No solar daily data found, using fallback data")
+            # Use the last 7 days as fallback dates
+            fallback_dates = []
+            for i in range(7):
+                date = today - timedelta(days=i)
+                fallback_dates.append((date, 0, 0))
+            solar_daily_data_query = fallback_dates
         
-        # Get wind plants below threshold
-        wind_alerts = db.session.query(
-            Plant.name.label('plant_name'),
+        solar_daily_data = {
+            'dates': [d[0].strftime('%Y-%m-%d') if isinstance(d, tuple) else d.date.strftime('%Y-%m-%d') for d in solar_daily_data_query],
+            'predictions': [float(d[1]) if isinstance(d, tuple) else float(d.predicted) if d.predicted else 0 for d in solar_daily_data_query],
+            'actuals': [float(d[2]) if isinstance(d, tuple) else float(d.actual) if d.actual else 0 for d in solar_daily_data_query]
+        }
+        
+        # Wind daily chart data - get last 7 days
+        wind_daily_data_query = db.session.query(
             DailyWindPrediction.date,
-            DailyWindPrediction.total_predicted_generation,
-            Plant.threshold_value,
-            DailyWindPrediction.recommendation_message.label('message')
-        ).join(DailyWindPrediction)\
-         .filter(DailyWindPrediction.recommendation_status == True)\
-         .order_by(DailyWindPrediction.date.desc())\
-         .limit(5).all()
+            func.sum(DailyWindPrediction.total_predicted_generation).label('predicted'),
+            func.sum(DailyWindPrediction.total_actual_generation).label('actual')
+        ).group_by(DailyWindPrediction.date).order_by(DailyWindPrediction.date.desc()).limit(7).all()
         
-        for alert in wind_alerts:
-            recommendations.append({
-                'plant_name': alert.plant_name,
-                'date': alert.date.strftime('%Y-%m-%d'),
-                'message': alert.message or f"Wind generation below threshold ({alert.total_predicted_generation:.2f} < {alert.threshold_value:.2f} kWh)."
-            })
+        # Add fallback data if no results
+        if not wind_daily_data_query:
+            print("No wind daily data found, using fallback data")
+            # Use the last 7 days as fallback dates
+            fallback_dates = []
+            for i in range(7):
+                date = today - timedelta(days=i)
+                fallback_dates.append((date, 0, 0))
+            wind_daily_data_query = fallback_dates
+        
+        wind_daily_data = {
+            'dates': [d[0].strftime('%Y-%m-%d') if isinstance(d, tuple) else d.date.strftime('%Y-%m-%d') for d in wind_daily_data_query],
+            'predictions': [float(d[1]) if isinstance(d, tuple) else float(d.predicted) if d.predicted else 0 for d in wind_daily_data_query],
+            'actuals': [float(d[2]) if isinstance(d, tuple) else float(d.actual) if d.actual else 0 for d in wind_daily_data_query]
+        }
+        
+        print("Solar daily data:", solar_daily_data)
+        print("Wind daily data:", wind_daily_data)
         
         return render_template('admin_dashboard.html', 
                               plants=plants,
                               solar_plants=solar_plants,
                               wind_plants=wind_plants,
-                              solar_predictions=solar_predictions,
-                              wind_predictions=wind_predictions,
-                              recommendations=recommendations)
+                              solar_predictions=formatted_solar_predictions,
+                              wind_predictions=formatted_wind_predictions,
+                              solar_hourly=formatted_solar_hourly,
+                              wind_hourly=formatted_wind_hourly,
+                              solar_recommendations=formatted_solar_recommendations,
+                              wind_recommendations=formatted_wind_recommendations,
+                              solar_daily_data=solar_daily_data,
+                              wind_daily_data=wind_daily_data,
+                              total_users=User.query.count(),
+                              today=today.strftime('%Y-%m-%d'),
+                              date_options=date_options)
     
-    else:
-        flash('Invalid plant type. Please contact administrator.', 'danger')
-        return redirect(url_for('home'))
+    # Get the user's plant
+    plant = None
+    if current_user.plant_id:
+        plant = Plant.query.get(current_user.plant_id)
+        
+    # Determine which dashboard to show based on plant type
+    if current_user.plant_type == 'solar':
+        # Get today and five days in the future
+        today = datetime.utcnow().date()
+        
+        # Get hourly solar predictions for today
+        solar_data = HourlySolarPrediction.query.filter(
+            HourlySolarPrediction.plant_id == current_user.plant_id,
+            func.date(HourlySolarPrediction.timestamp) == today
+        ).all()
+        
+        # If no data for today, run forecast update
+        if not solar_data and plant:
+            from ml_pipeline.fetch_weather import fetch_weather_data
+            from ml_pipeline.predict_hourly import predict_hourly_generation
+            from ml_pipeline.aggregate_daily import filter_daylight_hours, aggregate_daily_generation, save_predictions_to_db
+            
+            print(f"No solar data found for today, running forecast update for plant {plant.id}")
+            
+            try:
+                # Get weather forecast
+                weather_data = fetch_weather_data(plant.location)
+                
+                # Predict hourly generation
+                hourly_predictions = predict_hourly_generation(weather_data, "solar", plant.id)
+                
+                # Filter to daylight hours
+                filtered_predictions = filter_daylight_hours(hourly_predictions)
+                
+                # Aggregate to daily
+                daily_predictions = aggregate_daily_generation(filtered_predictions, plant.threshold_value)
+                
+                # Save to database
+                save_predictions_to_db(filtered_predictions, daily_predictions, plant.id, db, "solar")
+                
+                # Refresh data from database
+                solar_data = HourlySolarPrediction.query.filter(
+                    HourlySolarPrediction.plant_id == current_user.plant_id,
+                    func.date(HourlySolarPrediction.timestamp) == today
+                ).all()
+            except Exception as e:
+                print(f"Error updating forecasts: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
+        
+        # Get daily solar predictions
+        daily_solar_data = DailySolarPrediction.query.filter(
+            DailySolarPrediction.plant_id == current_user.plant_id,
+            DailySolarPrediction.date >= today
+        ).order_by(DailySolarPrediction.date).all()
+        
+        # Get recommendations (predictions below threshold)
+        recommendations = []
+        for prediction in daily_solar_data:
+            if prediction.recommendation_status:
+                recommendations.append({
+                    'date': prediction.date.strftime('%Y-%m-%d'),
+                    'message': prediction.recommendation_message or 'Energy generation below threshold'
+                })
+        
+        # Render solar dashboard
+        return render_template('solar_dashboard.html', 
+                              plant=plant,
+                              solar_data=solar_data,
+                              daily_solar_data=daily_solar_data,
+                              recommendations=recommendations,
+                              today=today)
+    
+    elif current_user.plant_type == 'wind':
+        # Get today and five days in the future
+        today = datetime.utcnow().date()
+        
+        # Check if we've already generated predictions for today and upcoming days
+        existing_daily_predictions = DailyWindPrediction.query.filter(
+            DailyWindPrediction.plant_id == current_user.plant_id,
+            DailyWindPrediction.date >= today
+        ).count()
+        
+        # Get hourly wind predictions for today
+        wind_data = HourlyWindPrediction.query.filter(
+            HourlyWindPrediction.plant_id == current_user.plant_id,
+            func.date(HourlyWindPrediction.timestamp) == today
+        ).all()
+        
+        # If no data for today AND no predictions for upcoming days, run forecast update
+        if not wind_data and existing_daily_predictions == 0 and plant:
+            from ml_pipeline.fetch_weather import fetch_wind_weather_data
+            from ml_pipeline.predict_hourly import predict_hourly_generation
+            from ml_pipeline.aggregate_daily import aggregate_daily_generation, save_predictions_to_db
+            
+            print(f"No wind data found for today, running forecast update for plant {plant.id}")
+            
+            try:
+                # Get weather forecast for wind
+                weather_data = fetch_wind_weather_data(location=plant.location)
+                
+                # Predict hourly generation
+                hourly_predictions = predict_hourly_generation(weather_data, "wind", plant.id)
+                
+                # Aggregate to daily
+                daily_predictions = aggregate_daily_generation(hourly_predictions, plant.threshold_value)
+                
+                # Save to database
+                save_predictions_to_db(hourly_predictions, daily_predictions, plant.id, db, "wind")
+                
+                # Refresh data from database
+                wind_data = HourlyWindPrediction.query.filter(
+                    HourlyWindPrediction.plant_id == current_user.plant_id,
+                    func.date(HourlyWindPrediction.timestamp) == today
+                ).all()
+            except Exception as e:
+                print(f"Error updating wind forecasts: {str(e)}")
+                import traceback
+                print(traceback.format_exc())
+        
+        # Get daily wind predictions
+        daily_wind_data = DailyWindPrediction.query.filter(
+            DailyWindPrediction.plant_id == current_user.plant_id,
+            DailyWindPrediction.date >= today
+        ).order_by(DailyWindPrediction.date).all()
+        
+        # Get recommendations (predictions below threshold)
+        recommendations = []
+        for prediction in daily_wind_data:
+            if prediction.recommendation_status:
+                recommendations.append({
+                    'date': prediction.date.strftime('%Y-%m-%d'),
+                    'message': prediction.recommendation_message or 'Energy generation below threshold'
+                })
+        
+        # Render wind dashboard
+        return render_template('wind_dashboard.html', 
+                              plant=plant,
+                              wind_data=wind_data,
+                              daily_wind_data=daily_wind_data,
+                              recommendations=recommendations,
+                              today=today)
+    
+    # Default case - no plant type specified
+    return render_template('dashboard_setup.html')
 
 @app.route('/register_plant', methods=['GET', 'POST'])
 # @login_required
@@ -548,9 +760,7 @@ def register_plant():
         if plant_type == 'solar':
             return redirect(url_for('update_solar_forecasts'))
         elif plant_type == 'wind':
-            # When wind forecast is implemented, redirect to that
-            flash('Wind forecast generation not yet implemented', 'warning')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('update_wind_forecasts'))
         else:
             return redirect(url_for('dashboard'))
     
@@ -609,8 +819,82 @@ def update_solar_forecasts():
 @login_required
 @admin_required
 def update_forecasts():
-    """Legacy route that redirects to update_solar_forecasts until wind is implemented"""
-    return redirect(url_for('update_solar_forecasts'))
+    """Route to update both solar and wind forecasts"""
+    try:
+        # Update solar forecasts
+        print("=== Starting update of all forecasts ===")
+        print("=== Updating solar forecasts ===")
+        
+        # Import solar ML pipeline modules
+        from ml_pipeline.fetch_weather import fetch_weather_data
+        from ml_pipeline.predict_hourly import predict_hourly_generation
+        from ml_pipeline.aggregate_daily import aggregate_daily_generation, filter_daylight_hours, save_predictions_to_db
+        
+        # Get all solar plants
+        solar_plants = Plant.query.filter_by(type='solar').all()
+        print(f"Found {len(solar_plants)} solar plants")
+        
+        for plant in solar_plants:
+            print(f"Processing solar plant: {plant.name} (ID: {plant.id})")
+            # Fetch weather data with plant location
+            weather_data = fetch_weather_data(location=plant.location)
+            print(f"Fetched {len(weather_data)} weather records for plant {plant.id}")
+            
+            # Predict hourly generation
+            hourly_predictions = predict_hourly_generation(weather_data, "solar", plant.id)
+            print(f"Generated {len(hourly_predictions)} hourly predictions for plant {plant.id}")
+            
+            # Filter to daylight hours for solar predictions
+            filtered_predictions = filter_daylight_hours(hourly_predictions)
+            print(f"Filtered to {len(filtered_predictions)} daylight hour predictions for plant {plant.id}")
+            
+            # Aggregate to daily predictions
+            daily_predictions = aggregate_daily_generation(filtered_predictions, plant.threshold_value)
+            print(f"Aggregated to {len(daily_predictions)} daily predictions for plant {plant.id}")
+            
+            # Save to database with direct MySQL connection
+            print(f"Saving predictions to database for plant {plant.id}...")
+            save_predictions_to_db(hourly_predictions, daily_predictions, plant.id, None, "solar")
+            print(f"Database update completed for plant {plant.id}")
+            
+        # Update wind forecasts
+        print("=== Updating wind forecasts ===")
+        
+        # Import wind ML pipeline modules
+        from ml_pipeline.fetch_weather import fetch_wind_weather_data
+        
+        # Get all wind plants
+        wind_plants = Plant.query.filter_by(type='wind').all()
+        print(f"Found {len(wind_plants)} wind plants")
+        
+        for plant in wind_plants:
+            print(f"Processing wind plant: {plant.name} (ID: {plant.id})")
+            # Fetch wind weather data with plant location
+            weather_data = fetch_wind_weather_data(location=plant.location)
+            print(f"Fetched {len(weather_data)} wind weather records for plant {plant.id}")
+            
+            # Predict hourly generation
+            hourly_predictions = predict_hourly_generation(weather_data, "wind", plant.id)
+            print(f"Generated {len(hourly_predictions)} hourly predictions for plant {plant.id}")
+            
+            # Aggregate to daily predictions
+            daily_predictions = aggregate_daily_generation(hourly_predictions, plant.threshold_value)
+            print(f"Aggregated to {len(daily_predictions)} daily predictions for plant {plant.id}")
+            
+            # Save to database
+            print(f"Saving predictions to database for plant {plant.id}...")
+            save_predictions_to_db(hourly_predictions, daily_predictions, plant.id, None, "wind")
+            print(f"Database update completed for plant {plant.id}")
+        
+        flash('All forecasts updated successfully', 'success')
+        print("=== Completed update of all forecasts ===")
+    except Exception as e:
+        print(f"Error updating forecasts: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        flash(f'Error updating forecasts: {str(e)}', 'danger')
+    
+    return redirect(url_for('dashboard'))
 
 @app.route('/user_profile', methods=['GET', 'POST'])
 @login_required
@@ -726,74 +1010,162 @@ def solar_chart_data():
         
         return jsonify(chart_data)
 
+@app.route('/api/refresh-wind-data')
+@login_required
+def refresh_wind_data():
+    """API endpoint to refresh wind prediction data"""
+    try:
+        # Get the plant associated with the user
+        if not current_user.plant_id:
+            return jsonify({
+                'success': False,
+                'message': 'No plant associated with this user'
+            })
+        
+        plant = Plant.query.get(current_user.plant_id)
+        if not plant:
+            return jsonify({
+                'success': False,
+                'message': 'Plant not found'
+            })
+        
+        # Import required modules
+        from ml_pipeline.fetch_weather import fetch_wind_weather_data
+        from ml_pipeline.predict_hourly import predict_hourly_generation
+        from ml_pipeline.aggregate_daily import aggregate_daily_generation, save_predictions_to_db
+        
+        # Get weather forecast for wind
+        weather_data = fetch_wind_weather_data(plant.location)
+        
+        # Predict hourly generation
+        hourly_predictions = predict_hourly_generation(weather_data, "wind", plant.id)
+        
+        # Aggregate to daily
+        daily_predictions = aggregate_daily_generation(hourly_predictions, plant.threshold_value)
+        
+        # Save to database
+        save_predictions_to_db(hourly_predictions, daily_predictions, plant.id, db, "wind")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Wind power forecasts updated successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error refreshing wind data: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        })
+
 @app.route('/api/wind_chart_data')
 @login_required
 def wind_chart_data():
-    """API endpoint for wind generation chart data"""
-    if current_user.plant_type != 'wind' and current_user.role != 'admin':
-        return jsonify({'error': 'Unauthorized'}), 403
+    """API endpoint to get wind chart data for the user's plant"""
+    plant_id = request.args.get('plant_id', default=current_user.plant_id, type=int)
     
-    # Get the plant ID
-    plant_id = request.args.get('plant_id', current_user.plant_id)
+    if not plant_id:
+        return jsonify({
+            'success': False,
+            'message': 'No plant ID specified'
+        })
     
-    # Handle 'all' option for admin users
-    if plant_id == 'all' and current_user.role == 'admin':
-        # Get total generation per day across all wind plants
-        daily_data = db.session.query(
-            DailyWindPrediction.date,
-            db.func.sum(DailyWindPrediction.total_predicted_generation).label('predicted'),
-            db.func.sum(DailyWindPrediction.total_actual_generation).label('actual')
-        ).group_by(DailyWindPrediction.date)\
-         .order_by(DailyWindPrediction.date)\
-         .limit(7).all()
+    try:
+        # Get today's date
+        today = datetime.utcnow().date()
         
-        # Format data for chart
-        dates = [d.date.strftime('%Y-%m-%d') for d in daily_data]
-        predictions = [float(d.predicted) for d in daily_data]
-        actuals = [float(d.actual) if d.actual else 0 for d in daily_data]
+        # Get the next 6 days of predictions
+        predictions = DailyWindPrediction.query.filter(
+            DailyWindPrediction.plant_id == plant_id,
+            DailyWindPrediction.date >= today
+        ).order_by(DailyWindPrediction.date).limit(6).all()
         
-        # Calculate average threshold across all wind plants
-        avg_threshold = db.session.query(db.func.avg(Plant.threshold_value))\
-            .filter(Plant.type == 'wind').scalar() or 0
-        
-        # Prepare data for chart
-        chart_data = {
-            'dates': dates,
-            'predictions': predictions,
-            'actuals': actuals,
-            'threshold': float(avg_threshold)
-        }
-        
-        return jsonify(chart_data)
-    else:
-        # Query daily wind predictions for a specific plant
-        try:
-            plant_id = int(plant_id)
-        except ValueError:
-            return jsonify({'error': 'Invalid plant ID'}), 400
-            
-        daily_data = DailyWindPrediction.query.filter_by(plant_id=plant_id)\
-            .order_by(DailyWindPrediction.date)\
-            .limit(7).all()
-        
-        # Format data for chart
-        dates = [d.date.strftime('%Y-%m-%d') for d in daily_data]
-        predictions = [float(d.total_predicted_generation) for d in daily_data]
-        actuals = [float(d.total_actual_generation) if d.total_actual_generation else 0 for d in daily_data]
-        
-        # Get threshold value
+        # Get plant threshold
         plant = Plant.query.get(plant_id)
         threshold = plant.threshold_value if plant else 0
         
-        # Prepare data for chart
-        chart_data = {
-            'dates': dates,
-            'predictions': predictions,
-            'actuals': actuals,
-            'threshold': threshold
-        }
+        # Format the data for the chart
+        dates = []
+        prediction_values = []
+        actual_values = []
         
-        return jsonify(chart_data)
+        for pred in predictions:
+            dates.append(pred.date.strftime('%Y-%m-%d'))
+            prediction_values.append(float(pred.total_predicted_generation) if pred.total_predicted_generation else 0)
+            actual_values.append(float(pred.total_actual_generation) if pred.total_actual_generation else 0)
+        
+        return jsonify({
+            'success': True,
+            'dates': dates,
+            'predictions': prediction_values,
+            'actuals': actual_values,
+            'threshold': threshold
+        })
+        
+    except Exception as e:
+        print(f"Error fetching wind chart data: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        })
+
+@app.route('/api/hourly_wind_data')
+@login_required
+def hourly_wind_data():
+    """API endpoint to get hourly wind prediction data for a specific date"""
+    plant_id = request.args.get('plant_id', default=current_user.plant_id, type=int)
+    date_str = request.args.get('date', default=None)
+    
+    if not plant_id:
+        return jsonify({
+            'success': False,
+            'message': 'No plant ID specified'
+        })
+    
+    if not date_str:
+        # Default to today if no date provided
+        date_str = datetime.utcnow().date().strftime('%Y-%m-%d')
+    
+    try:
+        # Parse the date string
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        # Get hourly predictions for the specified date
+        hourly_predictions = HourlyWindPrediction.query.filter(
+            HourlyWindPrediction.plant_id == plant_id,
+            func.date(HourlyWindPrediction.timestamp) == date_obj
+        ).order_by(HourlyWindPrediction.timestamp).all()
+        
+        # Format the data for the chart
+        hours = []
+        prediction_values = []
+        actual_values = []
+        
+        for pred in hourly_predictions:
+            hours.append(pred.timestamp.strftime('%H:%M'))
+            prediction_values.append(float(pred.predicted_generation) if pred.predicted_generation else 0)
+            actual_values.append(float(pred.actual_generation) if pred.actual_generation else 0)
+        
+        return jsonify({
+            'success': True,
+            'date': date_str,
+            'hours': hours,
+            'predictions': prediction_values,
+            'actuals': actual_values
+        })
+        
+    except Exception as e:
+        print(f"Error fetching hourly wind data: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        })
 
 @app.route('/plant_profile', methods=['GET', 'POST'])
 @login_required
@@ -890,11 +1262,15 @@ def get_weather_data():
                     condition = "Overcast"
             
             # Return current weather data
+            # Check if required fields are in the data
+            has_wind_direction = 'WindDirection' in closest_row
+            
             weather_data = {
                 'condition': condition,
                 'temperature': float(closest_row['AirTemperature']),
                 'humidity': float(closest_row['RelativeAirHumidity']),
                 'wind_speed': float(closest_row['WindSpeed']),
+                'wind_direction': float(closest_row['WindDirection']) if has_wind_direction else 'N/A',
                 'radiation': float(closest_row['Radiation']),
                 'timestamp': closest_row['time'].strftime('%Y-%m-%d %H:%M:%S'),
                 'air_pressure': float(closest_row['AirPressure'])
@@ -1017,319 +1393,577 @@ def refresh_solar_data():
             'message': f"Error refreshing solar data: {str(e)}"
         })
 
-@app.route('/api/refresh-wind-data')
-@login_required
-def refresh_wind_data():
-    """API endpoint to refresh wind generation data"""
-    try:
-        # Get user's plant
-        plant_id = current_user.plant_id
-        if not plant_id:
-            return jsonify({
-                'success': False,
-                'message': "No plant assigned to user"
-            })
-        
-        # Wind prediction not yet implemented
-        return jsonify({
-            'success': False,
-            'message': "Wind prediction not yet implemented"
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'message': f"Error refreshing wind data: {str(e)}"
-        })
-
-@app.route('/api/hourly_solar_data')
+@app.route('/api/hourly_solar_data', methods=['GET', 'POST'])
 @login_required
 def hourly_solar_data():
-    """API endpoint for hourly solar generation data by date"""
+    """API endpoint to get hourly solar prediction data for a specific date"""
+    plant_id = request.args.get('plant_id', default=current_user.plant_id, type=int)
+    date_str = request.args.get('date', default=None)
+    
+    if not plant_id:
+        return jsonify({
+            'success': False,
+            'message': 'No plant ID specified'
+        })
+    
+    if not date_str:
+        # Default to today if no date provided
+        date_str = datetime.utcnow().date().strftime('%Y-%m-%d')
+    
     try:
-        # Get parameters
-        date_str = request.args.get('date')
-        plant_id = request.args.get('plant_id', current_user.plant_id)
+        # Parse the date string
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
         
-        if not plant_id:
-            return jsonify({
-                'success': False,
-                'message': "No plant ID provided"
-            })
+        # Get hourly predictions for the specified date
+        hourly_predictions = HourlySolarPrediction.query.filter(
+            HourlySolarPrediction.plant_id == plant_id,
+            func.date(HourlySolarPrediction.timestamp) == date_obj
+        ).order_by(HourlySolarPrediction.timestamp).all()
         
-        try:
-            plant_id = int(plant_id)
-        except ValueError:
-            return jsonify({
-                'success': False,
-                'message': "Invalid plant ID"
-            })
-            
-        # Parse date
-        if date_str:
-            try:
-                selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            except ValueError:
-                return jsonify({
-                    'success': False,
-                    'message': "Invalid date format. Use YYYY-MM-DD"
-                })
-        else:
-            # Default to today
-            selected_date = datetime.now().date()
+        # Format the data for the chart
+        hours = []
+        prediction_values = []
+        actual_values = []
         
-        # Check if the date is in the future
-        today = datetime.now().date()
-        is_future_date = selected_date > today
-        
-        if is_future_date:
-            # Generate predictive data for future dates
-            from ml_pipeline.fetch_weather import fetch_weather_data
-            from ml_pipeline.predict_hourly import predict_hourly_generation
-            
-            # Fetch weather forecast for the selected date
-            try:
-                # Get plant location for weather data
-                plant = Plant.query.get(plant_id)
-                if not plant:
-                    return jsonify({
-                        'success': False,
-                        'message': "Plant not found"
-                    })
-                
-                # For this example, we'll use a simple approach to generate future data
-                # In a real app, you would use actual weather forecasts and your ML model
-                
-                # Get base pattern from most recent data
-                recent_data = HourlySolarPrediction.query.filter(
-                    HourlySolarPrediction.plant_id == plant_id
-                ).order_by(HourlySolarPrediction.timestamp.desc()).limit(24).all()
-                
-                if not recent_data:
-                    # No historical data to base predictions on
-                    return jsonify({
-                        'success': False,
-                        'message': "No historical data available for predictions"
-                    })
-                
-                # Generate future predictions
-                future_hours = []
-                future_predictions = []
-                
-                # Get the day difference to adjust values
-                days_in_future = (selected_date - today).days
-                day_factor = 1 + (days_in_future * 0.05)  # 5% variation per day
-                
-                # Generate 24 hours of data for the future date
-                base_date = datetime.combine(selected_date, datetime.min.time())
-                for hour in range(24):
-                    hour_timestamp = base_date + timedelta(hours=hour)
-                    future_hours.append(hour_timestamp.strftime('%H:%M'))
-                    
-                    # Get the corresponding hour from historical data
-                    # Use a variation based on the day in the future (for demo purposes)
-                    base_prediction = 0
-                    for data in recent_data:
-                        if data.timestamp.hour == hour:
-                            base_prediction = data.predicted_generation or 0
-                            break
-                    
-                    # Adjust prediction based on day factor and add some randomness
-                    import random
-                    random_factor = random.uniform(0.9, 1.1)  # ±10% random variation
-                    adjusted_prediction = base_prediction * day_factor * random_factor
-                    
-                    # Solar should be near zero during night hours
-                    if hour < 6 or hour > 18:
-                        adjusted_prediction = adjusted_prediction * 0.1  # Minimal at night
-                    
-                    future_predictions.append(round(adjusted_prediction, 2))
-                
-                return jsonify({
-                    'success': True,
-                    'date': selected_date.strftime('%Y-%m-%d'),
-                    'hours': future_hours,
-                    'predictions': future_predictions,
-                    'actuals': [0] * len(future_hours)  # Actuals will be empty for future dates
-                })
-                
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'message': f"Error generating future predictions: {str(e)}"
-                })
-        else:
-            # For past dates, use actual database records
-            hourly_data = HourlySolarPrediction.query.filter(
-                HourlySolarPrediction.plant_id == plant_id,
-                db.func.date(HourlySolarPrediction.timestamp) == selected_date
-            ).order_by(HourlySolarPrediction.timestamp).all()
-            
-            if not hourly_data:
-                return jsonify({
-                    'success': False,
-                    'message': f"No data found for date {date_str}"
-                })
-            
-            # Format data for chart
-            hours = [d.timestamp.strftime('%H:%M') for d in hourly_data]
-            predictions = [float(d.predicted_generation) if d.predicted_generation else 0 for d in hourly_data]
-            actuals = [float(d.actual_generation) if d.actual_generation else 0 for d in hourly_data]
+        # Check if we have data
+        if not hourly_predictions:
+            print(f"No solar hourly data found for date {date_str} and plant {plant_id}")
+            # Return fallback data - solar data typically available between 6am and 6pm
+            fallback_hours = [(datetime.strptime(f"{date_str} {h:02d}:00", '%Y-%m-%d %H:%M')).strftime('%H:%M') for h in range(6, 19)]  # 6am to 6pm
             
             return jsonify({
                 'success': True,
-                'date': selected_date.strftime('%Y-%m-%d'),
-                'hours': hours,
-                'predictions': predictions,
-                'actuals': actuals
+                'date': date_str,
+                'hours': fallback_hours,
+                'predictions': [0] * len(fallback_hours),
+                'actuals': [0] * len(fallback_hours),
+                'message': 'No data available for the selected date'
             })
         
+        for pred in hourly_predictions:
+            hours.append(pred.timestamp.strftime('%H:%M'))
+            prediction_values.append(float(pred.predicted_generation) if pred.predicted_generation else 0)
+            actual_values.append(float(pred.actual_generation) if pred.actual_generation else 0)
+        
+        return jsonify({
+            'success': True,
+            'date': date_str,
+            'hours': hours,
+            'predictions': prediction_values,
+            'actuals': actual_values
+        })
+        
     except Exception as e:
+        print(f"Error fetching hourly solar data: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
-            'message': f"Error fetching hourly data: {str(e)}"
+            'message': f'Error: {str(e)}'
         })
 
-@app.route('/api/hourly_wind_data')
+@app.route('/update_wind_forecasts')
 @login_required
-def hourly_wind_data():
-    """API endpoint for hourly wind generation data by date"""
+@admin_required
+def update_wind_forecasts():
+    """Route to update wind forecasts for all wind plants"""
     try:
-        # Get parameters
-        date_str = request.args.get('date')
-        plant_id = request.args.get('plant_id', current_user.plant_id)
+        print("=== Starting update_wind_forecasts route ===")
+        # Import ML pipeline modules
+        from ml_pipeline.fetch_weather import fetch_wind_weather_data
+        from ml_pipeline.predict_hourly import predict_hourly_generation
+        from ml_pipeline.aggregate_daily import aggregate_daily_generation, save_predictions_to_db
         
-        if not plant_id:
-            return jsonify({
-                'success': False,
-                'message': "No plant ID provided"
-            })
+        # Get all wind plants
+        wind_plants = Plant.query.filter_by(type='wind').all()
+        print(f"Found {len(wind_plants)} wind plants")
         
-        try:
-            plant_id = int(plant_id)
-        except ValueError:
-            return jsonify({
-                'success': False,
-                'message': "Invalid plant ID"
-            })
+        for plant in wind_plants:
+            print(f"Processing plant: {plant.name} (ID: {plant.id})")
+            # Fetch wind weather data with plant location
+            weather_data = fetch_wind_weather_data(location=plant.location)
+            print(f"Fetched {len(weather_data)} wind weather records for plant {plant.id}")
             
-        # Parse date
-        if date_str:
-            try:
-                selected_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-            except ValueError:
-                return jsonify({
-                    'success': False,
-                    'message': "Invalid date format. Use YYYY-MM-DD"
-                })
-        else:
-            # Default to today
-            selected_date = datetime.now().date()
+            # Predict hourly generation
+            hourly_predictions = predict_hourly_generation(weather_data, "wind", plant.id)
+            print(f"Generated {len(hourly_predictions)} hourly predictions for plant {plant.id}")
+            
+            # Aggregate to daily predictions
+            daily_predictions = aggregate_daily_generation(hourly_predictions, plant.threshold_value)
+            print(f"Aggregated to {len(daily_predictions)} daily predictions for plant {plant.id}")
+            
+            # Save to database
+            print(f"Saving predictions to database for plant {plant.id}...")
+            save_predictions_to_db(hourly_predictions, daily_predictions, plant.id, None, "wind")
+            print(f"Database update completed for plant {plant.id}")
         
-        # Check if the date is in the future
-        today = datetime.now().date()
-        is_future_date = selected_date > today
+        flash('Wind forecasts updated successfully', 'success')
+        print("=== Completed update_wind_forecasts route ===")
+    except Exception as e:
+        print(f"Error updating wind forecasts: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
+        flash(f'Error updating wind forecasts: {str(e)}', 'danger')
+    
+    return redirect(url_for('dashboard'))
+
+@app.route('/api/admin_hourly_data')
+@login_required
+@admin_required
+def admin_hourly_data():
+    """API endpoint to get hourly data for a specific date for the admin dashboard"""
+    if current_user.role != 'admin':
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
         
-        if is_future_date:
-            # Generate predictive data for future dates
-            try:
-                # Get plant location for weather data
-                plant = Plant.query.get(plant_id)
-                if not plant:
-                    return jsonify({
-                        'success': False,
-                        'message': "Plant not found"
-                    })
+    date_str = request.args.get('date', None)
+    energy_type = request.args.get('type', 'solar')  # 'solar' or 'wind'
+    plant_id = request.args.get('plant_id', 'all')  # Get plant_id parameter, default to 'all'
+    
+    if not date_str:
+        # Default to today if no date provided
+        date_str = datetime.utcnow().date().strftime('%Y-%m-%d')
+    
+    try:
+        # Parse the date string
+        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+        
+        if energy_type == 'solar':
+            # Get hourly solar predictions for the specified date for all plants
+            query = db.session.query(
+                HourlySolarPrediction,
+                Plant.name.label('plant_name')
+            ).join(Plant).filter(
+                func.date(HourlySolarPrediction.timestamp) == date_obj
+            )
+            
+            # Filter by plant_id if specified
+            if plant_id != 'all':
+                try:
+                    plant_id = int(plant_id)
+                    query = query.filter(Plant.id == plant_id)
+                except ValueError:
+                    return jsonify({'success': False, 'message': 'Invalid plant ID format'}), 400
                 
-                # For this example, we'll use a simple approach to generate future data
-                # In a real app, you would use actual weather forecasts and your ML model
-                
-                # Get base pattern from most recent data
-                recent_data = HourlyWindPrediction.query.filter(
-                    HourlyWindPrediction.plant_id == plant_id
-                ).order_by(HourlyWindPrediction.timestamp.desc()).limit(24).all()
-                
-                if not recent_data:
-                    # No historical data to base predictions on
-                    return jsonify({
-                        'success': False,
-                        'message': "No historical data available for predictions"
-                    })
-                
-                # Generate future predictions
-                future_hours = []
-                future_predictions = []
-                
-                # Get the day difference to adjust values
-                days_in_future = (selected_date - today).days
-                day_factor = 1 + (days_in_future * 0.07)  # 7% variation per day for wind
-                
-                # Generate 24 hours of data for the future date
-                base_date = datetime.combine(selected_date, datetime.min.time())
-                for hour in range(24):
-                    hour_timestamp = base_date + timedelta(hours=hour)
-                    future_hours.append(hour_timestamp.strftime('%H:%M'))
-                    
-                    # Get the corresponding hour from historical data
-                    # Use a variation based on the day in the future (for demo purposes)
-                    base_prediction = 0
-                    for data in recent_data:
-                        if data.timestamp.hour == hour:
-                            base_prediction = data.predicted_generation or 0
-                            break
-                    
-                    # Adjust prediction based on day factor and add some randomness
-                    import random
-                    random_factor = random.uniform(0.85, 1.15)  # ±15% random variation
-                    adjusted_prediction = base_prediction * day_factor * random_factor
-                    
-                    # Wind doesn't necessarily follow day/night patterns as strongly as solar
-                    future_predictions.append(round(adjusted_prediction, 2))
+            hourly_data = query.order_by(HourlySolarPrediction.timestamp, Plant.name).all()
+            
+            # Group data by hour for all plants
+            hours = []
+            grouped_data = {}
+            
+            # Check if we have data
+            if not hourly_data:
+                print(f"No solar hourly data found for date {date_str} and plant {plant_id}")
+                # Return fallback data
+                current_hour = datetime.now().hour
+                fallback_hours = [(datetime.strptime(f"{date_str} {h:02d}:00", '%Y-%m-%d %H:%M')).strftime('%H:%M') for h in range(6, 19)]  # 6am to 6pm
                 
                 return jsonify({
                     'success': True,
-                    'date': selected_date.strftime('%Y-%m-%d'),
-                    'hours': future_hours,
-                    'predictions': future_predictions,
-                    'actuals': [0] * len(future_hours)  # Actuals will be empty for future dates
+                    'type': 'solar',
+                    'date': date_str,
+                    'hours': fallback_hours,
+                    'plant_names': ['No Data'],
+                    'plant_data': {'No Data': {'predicted': [0] * len(fallback_hours), 'actual': [0] * len(fallback_hours)}},
+                    'total_predicted': [0] * len(fallback_hours),
+                    'total_actual': [0] * len(fallback_hours),
+                    'message': 'No data available for the selected date and plant'
                 })
+            
+            for prediction, plant_name in hourly_data:
+                hour = prediction.timestamp.strftime('%H:%M')
                 
-            except Exception as e:
-                return jsonify({
-                    'success': False,
-                    'message': f"Error generating future predictions: {str(e)}"
-                })
-        else:
-            # For past dates, use actual database records
-            hourly_data = HourlyWindPrediction.query.filter(
-                HourlyWindPrediction.plant_id == plant_id,
-                db.func.date(HourlyWindPrediction.timestamp) == selected_date
-            ).order_by(HourlyWindPrediction.timestamp).all()
+                if hour not in hours:
+                    hours.append(hour)
+                
+                if plant_name not in grouped_data:
+                    grouped_data[plant_name] = {
+                        'predicted': [],
+                        'actual': []
+                    }
+                
+                grouped_data[plant_name]['predicted'].append(float(prediction.predicted_generation) if prediction.predicted_generation else 0)
+                grouped_data[plant_name]['actual'].append(float(prediction.actual_generation) if prediction.actual_generation else 0)
             
-            if not hourly_data:
-                return jsonify({
-                    'success': False,
-                    'message': f"No data found for date {date_str}"
-                })
+            # Get plant names array
+            plant_names = list(grouped_data.keys())
             
-            # Format data for chart
-            hours = [d.timestamp.strftime('%H:%M') for d in hourly_data]
-            predictions = [float(d.predicted_generation) if d.predicted_generation else 0 for d in hourly_data]
-            actuals = [float(d.actual_generation) if d.actual_generation else 0 for d in hourly_data]
+            # Get total predicted and actual for each hour
+            total_predicted = []
+            total_actual = []
+            
+            for hour_idx in range(len(hours)):
+                hour_predicted = 0
+                hour_actual = 0
+                
+                for plant in plant_names:
+                    if hour_idx < len(grouped_data[plant]['predicted']):
+                        hour_predicted += grouped_data[plant]['predicted'][hour_idx]
+                    
+                    if hour_idx < len(grouped_data[plant]['actual']):
+                        hour_actual += grouped_data[plant]['actual'][hour_idx]
+                
+                total_predicted.append(round(hour_predicted, 2))
+                total_actual.append(round(hour_actual, 2))
             
             return jsonify({
                 'success': True,
-                'date': selected_date.strftime('%Y-%m-%d'),
+                'type': 'solar',
+                'date': date_str,
                 'hours': hours,
-                'predictions': predictions,
-                'actuals': actuals
+                'plant_names': plant_names,
+                'plant_data': grouped_data,
+                'total_predicted': total_predicted,
+                'total_actual': total_actual
+            })
+            
+        elif energy_type == 'wind':
+            # Get hourly wind predictions for the specified date for all plants
+            query = db.session.query(
+                HourlyWindPrediction,
+                Plant.name.label('plant_name')
+            ).join(Plant).filter(
+                func.date(HourlyWindPrediction.timestamp) == date_obj
+            )
+            
+            # Filter by plant_id if specified
+            if plant_id != 'all':
+                try:
+                    plant_id = int(plant_id)
+                    query = query.filter(Plant.id == plant_id)
+                except ValueError:
+                    return jsonify({'success': False, 'message': 'Invalid plant ID format'}), 400
+                
+            hourly_data = query.order_by(HourlyWindPrediction.timestamp, Plant.name).all()
+            
+            # Group data by hour for all plants
+            hours = []
+            grouped_data = {}
+            
+            # Check if we have data
+            if not hourly_data:
+                print(f"No wind hourly data found for date {date_str} and plant {plant_id}")
+                # Return fallback data - wind data is usually available for all 24 hours
+                fallback_hours = [(datetime.strptime(f"{date_str} {h:02d}:00", '%Y-%m-%d %H:%M')).strftime('%H:%M') for h in range(0, 24)]
+                
+                return jsonify({
+                    'success': True,
+                    'type': 'wind',
+                    'date': date_str,
+                    'hours': fallback_hours,
+                    'plant_names': ['No Data'],
+                    'plant_data': {'No Data': {'predicted': [0] * len(fallback_hours), 'actual': [0] * len(fallback_hours)}},
+                    'total_predicted': [0] * len(fallback_hours),
+                    'total_actual': [0] * len(fallback_hours),
+                    'message': 'No data available for the selected date and plant'
+                })
+            
+            for prediction, plant_name in hourly_data:
+                hour = prediction.timestamp.strftime('%H:%M')
+                
+                if hour not in hours:
+                    hours.append(hour)
+                
+                if plant_name not in grouped_data:
+                    grouped_data[plant_name] = {
+                        'predicted': [],
+                        'actual': []
+                    }
+                
+                grouped_data[plant_name]['predicted'].append(float(prediction.predicted_generation) if prediction.predicted_generation else 0)
+                grouped_data[plant_name]['actual'].append(float(prediction.actual_generation) if prediction.actual_generation else 0)
+            
+            # Get plant names array
+            plant_names = list(grouped_data.keys())
+            
+            # Get total predicted and actual for each hour
+            total_predicted = []
+            total_actual = []
+            
+            for hour_idx in range(len(hours)):
+                hour_predicted = 0
+                hour_actual = 0
+                
+                for plant in plant_names:
+                    if hour_idx < len(grouped_data[plant]['predicted']):
+                        hour_predicted += grouped_data[plant]['predicted'][hour_idx]
+                    
+                    if hour_idx < len(grouped_data[plant]['actual']):
+                        hour_actual += grouped_data[plant]['actual'][hour_idx]
+                
+                total_predicted.append(round(hour_predicted, 2))
+                total_actual.append(round(hour_actual, 2))
+            
+            # Debug log to check data structure before sending response
+            print(f"Wind hourly data response: hours={len(hours)}, plants={len(plant_names)}, data points={len(total_predicted)}")
+            
+            return jsonify({
+                'success': True,
+                'type': 'wind',
+                'date': date_str,
+                'hours': hours,
+                'plant_names': plant_names,
+                'plant_data': grouped_data,
+                'total_predicted': total_predicted,
+                'total_actual': total_actual
+            })
+        
+        else:
+            return jsonify({
+                'success': False,
+                'message': f'Invalid energy type: {energy_type}'
             })
         
     except Exception as e:
+        print(f"Error fetching admin hourly data: {str(e)}")
+        import traceback
+        print(traceback.format_exc())
         return jsonify({
             'success': False,
-            'message': f"Error fetching hourly data: {str(e)}"
+            'message': f'Error: {str(e)}'
         })
 
+@app.route('/manage_users', methods=['GET', 'POST'])
+@login_required
+@admin_required
+def manage_users():
+    """Route for managing users - admin only"""
+    
+    # Handle form submission for user management
+    if request.method == 'POST':
+        action = request.form.get('action')
+        
+        if action == 'add':
+            # Get form data
+            username = request.form.get('username')
+            email = request.form.get('email')
+            password = request.form.get('password')
+            role = request.form.get('role')
+            plant_id = request.form.get('plant_id')
+            plant_type = request.form.get('plant_type')
+            
+            # Validate required fields
+            if not username or not email or not password:
+                flash('Username, email, and password are required', 'danger')
+                return redirect(url_for('manage_users'))
+            
+            # Check if username or email already exists
+            existing_user = User.query.filter((User.username == username) | (User.email == email)).first()
+            if existing_user:
+                flash('Username or email already exists', 'danger')
+                return redirect(url_for('manage_users'))
+            
+            # Create new user
+            try:
+                # Create password hash
+                password_hash = generate_password_hash(password)
+                
+                # Create new user object
+                new_user = User(
+                    username=username,
+                    email=email,
+                    password_hash=password_hash,
+                    role=role,
+                    plant_id=plant_id if plant_id else None,
+                    plant_type=plant_type
+                )
+                
+                # Add to database
+                db.session.add(new_user)
+                db.session.commit()
+                
+                flash('User added successfully', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error adding user: {str(e)}', 'danger')
+            
+        elif action == 'edit':
+            # Get form data
+            user_id = request.form.get('user_id')
+            email = request.form.get('email')
+            role = request.form.get('role')
+            plant_id = request.form.get('plant_id')
+            plant_type = request.form.get('plant_type')
+            new_password = request.form.get('new_password')
+            
+            # Get the user
+            user = User.query.get(user_id)
+            if not user:
+                flash('User not found', 'danger')
+                return redirect(url_for('manage_users'))
+            
+            # Update user data
+            try:
+                user.email = email
+                user.role = role
+                user.plant_id = plant_id if plant_id else None
+                user.plant_type = plant_type
+                
+                # Update password if provided
+                if new_password:
+                    user.password_hash = generate_password_hash(new_password)
+                
+                db.session.commit()
+                flash('User updated successfully', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error updating user: {str(e)}', 'danger')
+            
+        elif action == 'delete':
+            user_id = request.form.get('user_id')
+            
+            # Cannot delete yourself
+            if int(user_id) == current_user.id:
+                flash('You cannot delete your own account', 'danger')
+                return redirect(url_for('manage_users'))
+            
+            # Get the user
+            user = User.query.get(user_id)
+            if not user:
+                flash('User not found', 'danger')
+                return redirect(url_for('manage_users'))
+            
+            # Delete the user
+            try:
+                db.session.delete(user)
+                db.session.commit()
+                flash('User deleted successfully', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error deleting user: {str(e)}', 'danger')
+        
+        return redirect(url_for('manage_users'))
+    
+    # Get all users
+    users = User.query.all()
+    
+    # Get all plants for the plant selection dropdown
+    plants = Plant.query.all()
+    
+    return render_template('manage_users.html', users=users, plants=plants)
+
+@app.route('/solar_recommendation')
+@login_required
+def solar_recommendation():
+    """Route for solar recommendation page with detailed analysis"""
+    # Get the plant associated with the user
+    plant = None
+    if current_user.plant_id:
+        plant = Plant.query.get(current_user.plant_id)
+    
+    # Ensure user has permission to view solar recommendations
+    if current_user.plant_type != 'solar' and current_user.role != 'admin':
+        flash('You do not have permission to view solar recommendations', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get today's date
+    today = datetime.utcnow().date()
+    
+    # Get daily solar predictions for past and future dates
+    daily_solar_data = DailySolarPrediction.query.filter(
+        DailySolarPrediction.plant_id == current_user.plant_id
+    ).order_by(DailySolarPrediction.date).all()
+    
+    # Filter for below threshold predictions
+    below_threshold_data = []
+    for prediction in daily_solar_data:
+        # Skip dates beyond today + 5 days
+        if prediction.date > today + timedelta(days=5):
+            continue
+            
+        if prediction.recommendation_status or (
+            prediction.total_predicted_generation and 
+            plant and 
+            plant.threshold_value and 
+            prediction.total_predicted_generation < plant.threshold_value
+        ):
+            # Calculate energy deficit
+            energy_deficit = 0
+            if prediction.total_predicted_generation and plant and plant.threshold_value:
+                energy_deficit = max(0, plant.threshold_value - prediction.total_predicted_generation)
+                
+            below_threshold_data.append({
+                'date': prediction.date,
+                'predicted_generation': prediction.total_predicted_generation,
+                'threshold': plant.threshold_value if plant else 0,
+                'deficit': energy_deficit
+            })
+    
+    # Calculate total energy deficit
+    total_deficit = sum(item['deficit'] for item in below_threshold_data)
+    
+    # Calculate coal required
+    # Using the formula: 1 kg of coal produces approximately 2.46 kWh of electricity
+    coal_efficiency = 2.46  # kWh per kg of coal
+    coal_required = total_deficit / coal_efficiency if coal_efficiency > 0 else 0
+    
+    return render_template('solar_recommendation.html', 
+                          plant=plant,
+                          below_threshold_data=below_threshold_data,
+                          total_deficit=total_deficit,
+                          coal_required=coal_required,
+                          today=today)
+
+@app.route('/wind_recommendation')
+@login_required
+def wind_recommendation():
+    """Route for wind recommendation page with detailed analysis"""
+    # Get the plant associated with the user
+    plant = None
+    if current_user.plant_id:
+        plant = Plant.query.get(current_user.plant_id)
+    
+    # Ensure user has permission to view wind recommendations
+    if current_user.plant_type != 'wind' and current_user.role != 'admin':
+        flash('You do not have permission to view wind recommendations', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    # Get today's date
+    today = datetime.utcnow().date()
+    
+    # Get daily wind predictions for past and future dates
+    daily_wind_data = DailyWindPrediction.query.filter(
+        DailyWindPrediction.plant_id == current_user.plant_id
+    ).order_by(DailyWindPrediction.date).all()
+    
+    # Filter for below threshold predictions
+    below_threshold_data = []
+    for prediction in daily_wind_data:
+        # Skip dates beyond today + 5 days
+        if prediction.date > today + timedelta(days=5):
+            continue
+            
+        if prediction.recommendation_status or (
+            prediction.total_predicted_generation and 
+            plant and 
+            plant.threshold_value and 
+            prediction.total_predicted_generation < plant.threshold_value
+        ):
+            # Calculate energy deficit
+            energy_deficit = 0
+            if prediction.total_predicted_generation and plant and plant.threshold_value:
+                energy_deficit = max(0, plant.threshold_value - prediction.total_predicted_generation)
+                
+            below_threshold_data.append({
+                'date': prediction.date,
+                'predicted_generation': prediction.total_predicted_generation,
+                'threshold': plant.threshold_value if plant else 0,
+                'deficit': energy_deficit
+            })
+    
+    # Calculate total energy deficit
+    total_deficit = sum(item['deficit'] for item in below_threshold_data)
+    
+    # Calculate coal required
+    # Using the formula: 1 kg of coal produces approximately 2.46 kWh of electricity
+    coal_efficiency = 2.46  # kWh per kg of coal
+    coal_required = total_deficit / coal_efficiency if coal_efficiency > 0 else 0
+    
+    return render_template('wind_recommendation.html', 
+                          plant=plant,
+                          below_threshold_data=below_threshold_data,
+                          total_deficit=total_deficit,
+                          coal_required=coal_required,
+                          today=today)
 
 if __name__ == '__main__':
     # Initialize the database before running the app

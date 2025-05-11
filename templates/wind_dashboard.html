@@ -6,11 +6,11 @@
 <!-- Wind theme colors and styles -->
 <style>
     :root {
-        --wind-primary: #7f7fd5; /* Periwinkle blue - replacing blue */
-        --wind-secondary: #86a8e7; /* Light blue-lavender - replacing light blue */
-        --wind-accent: #91eae4; /* Light turquoise - replacing yellow */
-        --wind-dark: #6366f1; /* Darker indigo - replacing dark blue */
-        --wind-light: #f5f7ff; /* Very light blue - replacing very light blue */
+        --wind-primary: #3b82f6; /* Blue */
+        --wind-secondary: #60a5fa; /* Lighter blue */
+        --wind-accent: #93c5fd; /* Very light blue */
+        --wind-dark: #1d4ed8; /* Darker blue */
+        --wind-light: #eff6ff; /* Very light blue background */
     }
     
     .wind-bg-primary {
@@ -38,7 +38,7 @@
     .wind-card {
         background-color: white;
         border-radius: 0.5rem;
-        box-shadow: 0 4px 6px rgba(52, 152, 219, 0.1);
+        box-shadow: 0 4px 6px rgba(59, 130, 246, 0.1);
         transition: transform 0.2s, box-shadow 0.2s;
         border-top: 3px solid var(--wind-primary);
         margin-bottom: 1.5rem;
@@ -46,7 +46,7 @@
     
     .wind-card:hover {
         transform: translateY(-5px);
-        box-shadow: 0 8px 15px rgba(52, 152, 219, 0.2);
+        box-shadow: 0 8px 15px rgba(59, 130, 246, 0.2);
     }
     
     .wind-gradient {
@@ -163,6 +163,12 @@
                     </svg>
                     Refresh Data
                 </button>
+                <a href="{{ url_for('wind_recommendation') }}" class="btn-white-wind px-4 py-2 rounded-lg transition duration-200 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" />
+                    </svg>
+                    Recommendations
+                </a>
                 <a href="{{ url_for('user_profile') }}" class="btn-white-wind px-4 py-2 rounded-lg transition duration-200">
                     My Profile
                 </a>
@@ -175,62 +181,36 @@
         <!-- Total Generation -->
         <div class="stat-card bg-white">
             <h3 class="text-gray-500 mb-1 text-sm">Today's Generation</h3>
-            <p class="text-3xl font-bold wind-text-primary mb-2">
-                {% if daily_wind_data and daily_wind_data|length > 0 %}
-                    {{ daily_wind_data[0].total_predicted_generation|float|round(1) }} kWh
-                {% else %}
-                    0 kWh
-                {% endif %}
+            <p class="text-3xl font-bold text-green-500 mb-2">
+                {{ daily_wind_data[0].total_predicted_generation|float|round(1) if daily_wind_data and daily_wind_data|length > 0 else 0 }} kWh
             </p>
             <div class="flex items-center">
-                <span class="text-green-500 flex items-center text-sm">
+                <span id="vsYesterday" class="text-gray-500 flex items-center text-sm">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M12 7a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0V8.414l-4.293 4.293a1 1 0 01-1.414 0L8 10.414l-4.293 4.293a1 1 0 01-1.414-1.414l5-5a1 1 0 011.414 0L11 10.586 14.586 7H12z" clip-rule="evenodd" />
                     </svg>
-                    3.8% vs Yesterday
+                    Calculating...
                 </span>
             </div>
         </div>
         
-        <!-- Efficiency Rating -->
+        
+        
+        <!-- Threshold Value Card -->
         <div class="stat-card bg-white">
-            <h3 class="text-gray-500 mb-1 text-sm">Efficiency Rating</h3>
+            <h3 class="text-gray-500 mb-1 text-sm">Threshold Value</h3>
             <p class="text-3xl font-bold wind-text-primary mb-2">
-                {% if daily_wind_data and daily_wind_data|length > 0 and plant and plant.threshold_value %}
-                    {{ ((daily_wind_data[0].total_predicted_generation / plant.threshold_value * 100)|float)|round }}%
-                {% else %}
-                    0%
-                {% endif %}
+                {{ plant.threshold_value|float|round(1) if plant and plant.threshold_value else 0 }} kWh
             </p>
             <div class="flex items-center">
-                <span class="text-sm 
-                    {% if daily_wind_data and daily_wind_data|length > 0 and plant and plant.threshold_value and (daily_wind_data[0].total_predicted_generation / plant.threshold_value * 100)|float > 90 %}
-                        text-green-500
-                    {% elif daily_wind_data and daily_wind_data|length > 0 and plant and plant.threshold_value and (daily_wind_data[0].total_predicted_generation / plant.threshold_value * 100)|float > 70 %}
-                        text-yellow-500
-                    {% else %}
-                        text-red-500
-                    {% endif %}"
-                >
-                    {% if daily_wind_data and daily_wind_data|length > 0 and plant and plant.threshold_value %}
-                        {% if (daily_wind_data[0].total_predicted_generation / plant.threshold_value * 100)|float > 90 %}
-                            Excellent
-                        {% elif (daily_wind_data[0].total_predicted_generation / plant.threshold_value * 100)|float > 70 %}
-                            Good
-                        {% else %}
-                            Needs Attention
-                        {% endif %}
-                    {% else %}
-                        No Data
-                    {% endif %}
-                </span>
+                <span class="text-sm text-gray-600">Plant minimum daily target</span>
             </div>
         </div>
         
-        <!-- Weather Impact -->
+        <!-- Wind Conditions -->
         <div class="stat-card bg-white">
-            <h3 class="text-gray-500 mb-1 text-sm">Wind Speed</h3>
-            <p class="text-3xl font-bold wind-text-primary mb-2" id="wind-speed">
+            <h3 class="text-gray-500 mb-1 text-sm">Wind Conditions</h3>
+            <p class="text-3xl font-bold wind-text-primary mb-2" id="wind-condition">
                 Loading...
             </p>
             <div class="flex items-center">
@@ -241,10 +221,10 @@
         <!-- Peak Generation -->
         <div class="stat-card bg-white">
             <h3 class="text-gray-500 mb-1 text-sm">Peak Generation Hour</h3>
-            <p class="text-3xl font-bold wind-text-primary mb-2">
+            <p class="text-3xl font-bold wind-text-primary mb-2" id="peak-hour">
                 {% set max_value = namespace(value=0, hour="") %}
                 {% for data in wind_data %}
-                    {% if data.predicted_generation and data.predicted_generation > max_value.value %}
+                    {% if data.timestamp.date() == today and data.predicted_generation and data.predicted_generation > max_value.value %}
                         {% set max_value.value = data.predicted_generation %}
                         {% set max_value.hour = data.timestamp.strftime('%H:%M') %}
                     {% endif %}
@@ -252,7 +232,7 @@
                 {{ max_value.hour or 'N/A' }}
             </p>
             <div class="flex items-center">
-                <span class="text-sm text-gray-500">{{ max_value.value|float|round(2) if max_value.value else 0 }} kWh peak output</span>
+                <span class="text-sm text-gray-500" id="peak-output">{{ max_value.value|float|round(2) if max_value.value else 0 }} kWh peak output</span>
             </div>
         </div>
     </div>
@@ -266,9 +246,7 @@
                 <div class="date-selector">
                     <label for="dateSelector" class="mr-2 text-gray-600">Select Date:</label>
                     <select id="dateSelector" class="wind-text-primary border-wind-primary">
-                        {% for data in daily_wind_data %}
-                        <option value="{{ data.date.strftime('%Y-%m-%d') }}">{{ data.date.strftime('%Y-%m-%d') }}</option>
-                        {% endfor %}
+                        <!-- Date options will be dynamically populated by JavaScript -->
                     </select>
                 </div>
             </div>
@@ -279,17 +257,25 @@
 
         <!-- Recommendations -->
         <div class="wind-card p-6">
-            <h2 class="text-xl font-semibold wind-text-primary mb-4">Recommendations</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold wind-text-primary">Recommendations</h2>
+                <a href="{{ url_for('wind_recommendation') }}" target="_blank" class="wind-btn py-1 px-3 text-sm flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M6.672 1.911a1 1 0 10-1.932.518l.259.966a1 1 0 001.932-.518l-.26-.966zM2.429 4.74a1 1 0 10-.517 1.932l.966.259a1 1 0 00.517-1.932l-.966-.26zm8.814-.569a1 1 0 00-1.415-1.414l-.707.707a1 1 0 101.415 1.415l.707-.708zm-7.071 7.072l.707-.707A1 1 0 003.465 9.12l-.708.707a1 1 0 001.415 1.415zm3.2-5.171a1 1 0 00-1.3 1.3l4 10a1 1 0 001.823.075l1.38-2.759 3.018 3.02a1 1 0 001.414-1.415l-3.019-3.02 2.76-1.379a1 1 0 00-.076-1.822l-10-4z" clip-rule="evenodd" />
+                    </svg>
+                    Detailed Analysis
+                </a>
+            </div>
             
             {% if recommendations %}
-                <div class="space-y-4">
+                <div class="space-y-4 text-red-500">
                     {% for recommendation in recommendations %}
                     <div class="bg-wind-light border-l-4 border-wind-primary p-4 rounded-r-lg">
                         <div class="flex justify-between items-start">
-                            <p class="font-semibold wind-text-dark">{{ recommendation.date }}</p>
+                            <p class="font-semibold text-wind-dark">{{ recommendation.date }}</p>
                             <span class="bg-wind-primary text-white text-xs px-2 py-1 rounded-full">Alert</span>
                         </div>
-                        <p class="text-gray-700 mt-2">{{ recommendation.message }}</p>
+                        <p class="mt-2">{{ recommendation.message }}</p>
                     </div>
                     {% endfor %}
                 </div>
@@ -299,11 +285,11 @@
                 </div>
             {% endif %}
             
-            <!-- Efficiency Pie Chart -->
+            <!-- Generation Metrics Chart -->
             <div class="mt-6">
-                <h3 class="text-lg font-medium wind-text-primary mb-3">Current Efficiency</h3>
+                <h3 class="text-lg font-medium wind-text-primary mb-3">Generation Metrics</h3>
                 <div class="h-48">
-                    <canvas id="efficiencyChart"></canvas>
+                    <canvas id="metricsChart"></canvas>
                 </div>
             </div>
         </div>
@@ -321,10 +307,10 @@
             <table class="min-w-full bg-white">
                 <thead class="bg-wind-light">
                     <tr>
-                        <th class="py-3 px-4 text-left wind-text-dark">Date</th>
-                        <th class="py-3 px-4 text-left wind-text-dark">Predicted Generation (kWh)</th>
-                        <th class="py-3 px-4 text-left wind-text-dark">Actual Generation (kWh)</th>
-                        <th class="py-3 px-4 text-left wind-text-dark">Status</th>
+                        <th class="py-3 px-4 text-left text-wind-dark">Date</th>
+                        <th class="py-3 px-4 text-left text-wind-dark">Predicted Generation (kWh)</th>
+                        <th class="py-3 px-4 text-left text-wind-dark">Actual Generation (kWh)</th>
+                        <th class="py-3 px-4 text-left text-wind-dark">Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -359,7 +345,7 @@
 
     <!-- Weather Data & Details -->
     <div class="wind-card p-6">
-        <h2 class="text-xl font-semibold wind-text-primary mb-4">Current Weather Conditions</h2>
+        <h2 class="text-xl font-semibold wind-text-primary mb-4">Current Wind Conditions</h2>
         <div id="weather-data" class="grid grid-cols-1 md:grid-cols-4 gap-4">
             <!-- Weather data will be populated by JavaScript -->
             <div class="text-center p-4 bg-wind-light rounded-lg">
@@ -376,7 +362,7 @@
 
 <!-- Add data variables for charts -->
 <script type="text/javascript">
-    // Create variables outside the template blocks
+    // Create variables to hold the data
     var hourlyLabels = [];
     var hourlyPredictions = [];
     var hourlyActuals = [];
@@ -384,37 +370,35 @@
     var dailyPredictions = [];
     var dailyActuals = [];
     var dailyThresholds = [];
-    var efficiencyData = [];
     
-    // Set the variable values inside separate script blocks
-    {% if wind_data %}
-        {% for data in wind_data %}
-        hourlyLabels.push("{{ data.timestamp.strftime('%H:%M') }}");
-        hourlyPredictions.push({{ data.predicted_generation|float or 0 }});
-        hourlyActuals.push({{ data.actual_generation|float or 0 }});
-        {% endfor %}
-    {% endif %}
-    
-    {% if daily_wind_data %}
-        {% for data in daily_wind_data %}
-        dailyLabels.push("{{ data.date.strftime('%Y-%m-%d') }}");
-        dailyPredictions.push({{ data.total_predicted_generation|float or 0 }});
-        dailyActuals.push({{ data.total_actual_generation|float or 0 }});
-        
-        // For efficiency pie chart
-        {% if plant and plant.threshold_value %}
-        var efficiencyValue = {{ (data.total_predicted_generation / plant.threshold_value * 100)|float|round }};
-        efficiencyData.push(efficiencyValue);
+    // Load data from server-side rendered JSON
+    function loadChartData() {
+        {% if wind_data %}
+            {% for data in wind_data %}
+                hourlyLabels.push("{{ data.timestamp.strftime('%H:%M') }}");
+                hourlyPredictions.push({{ data.predicted_generation|float or 0 }});
+                hourlyActuals.push({{ data.actual_generation|float or 0 }});
+            {% endfor %}
         {% endif %}
-        {% endfor %}
-    {% endif %}
+        
+        {% if daily_wind_data %}
+            {% for data in daily_wind_data %}
+                dailyLabels.push("{{ data.date.strftime('%Y-%m-%d') }}");
+                dailyPredictions.push({{ data.total_predicted_generation|float or 0 }});
+                dailyActuals.push({{ data.total_actual_generation|float or 0 }});
+            {% endfor %}
+        {% endif %}
+        
+        {% if plant and plant.threshold_value %}
+            // Create threshold array
+            for (var i = 0; i < dailyLabels.length; i++) {
+                dailyThresholds.push({{ plant.threshold_value|float or 0 }});
+            }
+        {% endif %}
+    }
     
-    {% if plant and plant.threshold_value %}
-        // Create threshold array
-        for (var i = 0; i < dailyLabels.length; i++) {
-            dailyThresholds.push({{ plant.threshold_value|float or 0 }});
-        }
-    {% endif %}
+    // Execute the data loading function
+    loadChartData();
 </script>
 
 <!-- Load custom dashboard JavaScript -->
