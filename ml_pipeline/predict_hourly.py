@@ -4,6 +4,8 @@ import joblib
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import pickle
+import gzip
 
 def predict_hourly_generation(weather_data, plant_type="solar", plant_id=1):
     """
@@ -75,9 +77,11 @@ def predict_hourly_generation(weather_data, plant_type="solar", plant_id=1):
         elif plant_type == "wind":
             # Load the wind power prediction model
             model_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                              'models', 'wind_power_rf_model.pkl')
+                              'models', 'wind_power_rf_model.pkl.gz')
             print(f"Loading wind model from: {model_path}")
-            model = joblib.load(model_path)
+            # Load the compressed model file
+            with gzip.open(model_path, 'rb') as f:
+                model = pickle.load(f)
             
             # Process the weather data for wind prediction
             df_weather = weather_data.copy()
