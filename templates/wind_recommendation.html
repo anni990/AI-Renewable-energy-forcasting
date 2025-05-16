@@ -122,6 +122,20 @@
                 <p class="text-white opacity-90">Analysis of energy deficit and required fossil fuel compensation</p>
             </div>
             <div class="flex items-center gap-3 mt-4 md:mt-0">
+                <!-- Time Period Dropdown -->
+                <div class="relative">
+                    <select id="time-period-selector" class="bg-white text-blue-500 px-4 py-2 rounded-lg appearance-none pr-8 cursor-pointer" onchange="changePeriod(this.value)">
+                        <option value="upcoming" {% if time_period == 'upcoming' %}selected{% endif %}>Upcoming Days</option>
+                        <option value="today" {% if time_period == 'today' %}selected{% endif %}>Today</option>
+                        <option value="past" {% if time_period == 'past' %}selected{% endif %}>Past</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-blue-500">
+                        <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                            <path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 5.757 6.586 4.343 8z"/>
+                        </svg>
+                    </div>
+                </div>
+                
                 <a href="{{ url_for('dashboard') }}" class="bg-white text-blue-500 px-4 py-2 rounded-lg flex items-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M9.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L7.414 9H15a1 1 0 110 2H7.414l2.293 2.293a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -170,7 +184,18 @@
     
     <!-- Main content -->
     <div class="wind-card p-6">
-        <h2 class="text-xl font-semibold wind-text-primary mb-6">Energy Deficit Analysis</h2>
+        <h2 class="text-xl font-semibold wind-text-primary mb-6">
+            Energy Deficit Analysis
+            <span class="text-sm font-normal ml-2">
+                {% if time_period == 'past' %}
+                    (Past Records)
+                {% elif time_period == 'today' %}
+                    (Today: {{ today.strftime('%Y-%m-%d') }})
+                {% else %}
+                    (Upcoming: {{ today.strftime('%Y-%m-%d') }} to {{ future_date.strftime('%Y-%m-%d') }})
+                {% endif %}
+            </span>
+        </h2>
         
         <!-- Chart Section -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -219,7 +244,7 @@
                     <tbody>
                         {% for data in below_threshold_data %}
                             <tr>
-                                <td>{{ data.date.strftime('%Y-%m-%d') }}</td>
+                                <td>{{ data.date }}</td><!-- Date is already a formatted string from app.py -->
                                 <td>{{ data.predicted_generation|float|round(2) }}</td>
                                 <td>{{ data.threshold|float|round(2) }}</td>
                                 <td class="text-red-600 font-medium">{{ data.deficit|float|round(2) }}</td>
@@ -253,7 +278,7 @@
             <div class="absolute top-4 right-4 flex space-x-2 z-10">
                 <button class="slide-dot active" data-slide="0"></button>
                 <button class="slide-dot" data-slide="1"></button>
-                <button class="slide-dot" data-slide="2"></button>
+                <!-- <button class="slide-dot" data-slide="2"></button> -->
             </div>
             
             <!-- Slides -->
@@ -309,7 +334,7 @@
                 </div>
                 
                 <!-- Slide 3: Energy Storage -->
-                <div class="slide p-6 bg-gradient-to-r from-wind-light to-wind-light/60 hidden">
+                <!-- <div class="slide p-6 bg-gradient-to-r from-wind-light to-wind-light/60 hidden">
                     <div class="flex items-center mb-3">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-purple-500 mr-3" viewBox="0 0 20 20" fill="currentColor">
                             <path d="M13 7H7v6h6V7z" />
@@ -332,7 +357,7 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div> -->
             </div>
             
             <!-- Prev/Next buttons -->
@@ -365,24 +390,40 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Data for charts
-    const dates = [
-        {% for data in below_threshold_data %}
-            "{{ data.date.strftime('%m-%d') }}",
-        {% endfor %}
-    ];
+    // Load data from template to JavaScript variables
+    var chartData = (function() {
+        // Parse the data safely
+        try {
+            var rawData = JSON.parse('{{ below_threshold_data|tojson|safe }}');
+            return {
+                dates: rawData.map(function(item) {
+                    // Parse date string (format varies based on server locale)
+                    var dateParts = item.date.split('-');
+                    // Assuming format is YYYY-MM-DD or similar
+                    return dateParts[1] + '-' + dateParts[2];
+                }),
+                deficits: rawData.map(function(item) {
+                    return parseFloat((item.deficit || 0).toFixed(2));
+                }),
+                coalRequired: rawData.map(function(item) {
+                    return parseFloat(((item.deficit || 0) / 2.46).toFixed(2));
+                })
+            };
+        } catch (e) {
+            console.error("Error parsing chart data:", e);
+            return { dates: [], deficits: [], coalRequired: [] };
+        }
+    })();
     
-    const deficits = [
-        {% for data in below_threshold_data %}
-            {{ data.deficit|float|round(2) }},
-        {% endfor %}
-    ];
+    // Function to handle time period change
+    window.changePeriod = function(period) {
+        window.location.href = "{{ url_for('wind_recommendation') }}?time_period=" + period;
+    };
     
-    const coalRequired = [
-        {% for data in below_threshold_data %}
-            {{ (data.deficit / 2.46)|float|round(2) }},
-        {% endfor %}
-    ];
+    // Get chart data
+    var dates = chartData.dates;
+    var deficits = chartData.deficits;
+    var coalRequired = chartData.coalRequired;
     
     // 1. Pie Chart for Energy Deficit
     const pieCtx = document.getElementById('deficitPieChart').getContext('2d');

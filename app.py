@@ -24,8 +24,27 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 def _jinja2_filter_now():
     return datetime.now()
 
+# Custom filter for division
+@app.template_filter('divide')
+def _jinja2_filter_divide(value, divisor):
+    try:
+        return float(value) / float(divisor)
+    except (ValueError, ZeroDivisionError):
+        return 0
+
+# Custom filter for date formatting with strftime
+@app.template_filter('strftime')
+def _jinja2_filter_strftime(date, fmt=None):
+    if fmt is None:
+        fmt = '%Y-%m-%d'
+    if date is None:
+        return ''
+    return date.strftime(fmt)
+
 # Register now() as a global function in Jinja2
 app.jinja_env.globals['now'] = datetime.now
+# Make timedelta available in templates
+app.jinja_env.globals['timedelta'] = timedelta
 
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
@@ -715,11 +734,24 @@ def dashboard():
         
         # Get recommendations (predictions below threshold)
         recommendations = []
+        below_threshold_data = []
         for prediction in daily_wind_data:
-            if prediction.recommendation_status:
-                recommendations.append({
-                    'date': prediction.date.strftime('%Y-%m-%d'),
-                    'message': prediction.recommendation_message or 'Energy generation below threshold'
+            if prediction.recommendation_status or (
+                prediction.total_predicted_generation and 
+                plant and 
+                plant.threshold_value and 
+                prediction.total_predicted_generation < plant.threshold_value
+            ):
+                # Calculate energy deficit
+                energy_deficit = 0
+                if prediction.total_predicted_generation and plant and plant.threshold_value:
+                    energy_deficit = max(0, plant.threshold_value - prediction.total_predicted_generation)
+                    
+                below_threshold_data.append({
+                    'date': prediction.date.strftime('%Y-%m-%d'),  # Format as string for JSON
+                    'predicted_generation': prediction.total_predicted_generation,
+                    'threshold': plant.threshold_value if plant else 0,
+                    'deficit': energy_deficit
                 })
         
         # Render wind dashboard
@@ -1841,7 +1873,7 @@ def manage_users():
     
     return render_template('manage_users.html', users=users, plants=plants)
 
-@app.route('/solar_recommendation')
+@app.route('/solar_recommendation', methods=['GET'])
 @login_required
 def solar_recommendation():
     """Route for solar recommendation page with detailed analysis"""
@@ -1855,21 +1887,37 @@ def solar_recommendation():
         flash('You do not have permission to view solar recommendations', 'danger')
         return redirect(url_for('dashboard'))
     
-    # Get today's date
+    # Get today's date and calculate future date
     today = datetime.utcnow().date()
+    future_date = today + timedelta(days=5)
     
-    # Get daily solar predictions for past and future dates
-    daily_solar_data = DailySolarPrediction.query.filter(
+    # Get the time period from the request (default to 'upcoming')
+    time_period = request.args.get('time_period', 'upcoming')
+    
+    # Get daily solar predictions filtered by time period
+    query = DailySolarPrediction.query.filter(
         DailySolarPrediction.plant_id == current_user.plant_id
-    ).order_by(DailySolarPrediction.date).all()
+    )
+    
+    if time_period == 'past':
+        # Past data: all dates before today
+        query = query.filter(DailySolarPrediction.date < today)
+    elif time_period == 'today':
+        # Today's data only
+        query = query.filter(DailySolarPrediction.date == today)
+    else:  # 'upcoming' is default
+        # Future data: today and up to 5 days in the future
+        query = query.filter(
+            DailySolarPrediction.date >= today,
+            DailySolarPrediction.date <= future_date
+        )
+    
+    # Get the filtered data ordered by date
+    daily_solar_data = query.order_by(DailySolarPrediction.date).all()
     
     # Filter for below threshold predictions
     below_threshold_data = []
     for prediction in daily_solar_data:
-        # Skip dates beyond today + 5 days
-        if prediction.date > today + timedelta(days=5):
-            continue
-            
         if prediction.recommendation_status or (
             prediction.total_predicted_generation and 
             plant and 
@@ -1882,7 +1930,7 @@ def solar_recommendation():
                 energy_deficit = max(0, plant.threshold_value - prediction.total_predicted_generation)
                 
             below_threshold_data.append({
-                'date': prediction.date,
+                'date': prediction.date.strftime('%Y-%m-%d'),  # Convert date to string for JSON
                 'predicted_generation': prediction.total_predicted_generation,
                 'threshold': plant.threshold_value if plant else 0,
                 'deficit': energy_deficit
@@ -1901,9 +1949,11 @@ def solar_recommendation():
                           below_threshold_data=below_threshold_data,
                           total_deficit=total_deficit,
                           coal_required=coal_required,
-                          today=today)
+                          today=today,
+                          future_date=future_date,
+                          time_period=time_period)
 
-@app.route('/wind_recommendation')
+@app.route('/wind_recommendation', methods=['GET'])
 @login_required
 def wind_recommendation():
     """Route for wind recommendation page with detailed analysis"""
@@ -1919,19 +1969,36 @@ def wind_recommendation():
     
     # Get today's date
     today = datetime.utcnow().date()
+    # Calculate future date (today + 5 days)
+    future_date = today + timedelta(days=5)
     
-    # Get daily wind predictions for past and future dates
-    daily_wind_data = DailyWindPrediction.query.filter(
+    # Get the time period from the request (default to 'upcoming')
+    time_period = request.args.get('time_period', 'upcoming')
+    
+    # Get daily wind predictions filtered by time period
+    query = DailyWindPrediction.query.filter(
         DailyWindPrediction.plant_id == current_user.plant_id
-    ).order_by(DailyWindPrediction.date).all()
+    )
+    
+    if time_period == 'past':
+        # Past data: all dates before today
+        query = query.filter(DailyWindPrediction.date < today)
+    elif time_period == 'today':
+        # Today's data only
+        query = query.filter(DailyWindPrediction.date == today)
+    else:  # 'upcoming' is default
+        # Future data: today and up to 5 days in the future
+        query = query.filter(
+            DailyWindPrediction.date >= today,
+            DailyWindPrediction.date <= future_date
+        )
+    
+    # Get the filtered data ordered by date
+    daily_wind_data = query.order_by(DailyWindPrediction.date).all()
     
     # Filter for below threshold predictions
     below_threshold_data = []
     for prediction in daily_wind_data:
-        # Skip dates beyond today + 5 days
-        if prediction.date > today + timedelta(days=5):
-            continue
-            
         if prediction.recommendation_status or (
             prediction.total_predicted_generation and 
             plant and 
@@ -1944,7 +2011,7 @@ def wind_recommendation():
                 energy_deficit = max(0, plant.threshold_value - prediction.total_predicted_generation)
                 
             below_threshold_data.append({
-                'date': prediction.date,
+                'date': prediction.date.strftime('%Y-%m-%d'),  # Format as string for JSON
                 'predicted_generation': prediction.total_predicted_generation,
                 'threshold': plant.threshold_value if plant else 0,
                 'deficit': energy_deficit
@@ -1963,7 +2030,9 @@ def wind_recommendation():
                           below_threshold_data=below_threshold_data,
                           total_deficit=total_deficit,
                           coal_required=coal_required,
-                          today=today)
+                          today=today,
+                          future_date=future_date,
+                          time_period=time_period)
 
 if __name__ == '__main__':
     # Initialize the database before running the app

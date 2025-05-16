@@ -87,6 +87,8 @@ function initPlantSelectors() {
 
 // Update solar data based on selected plant
 function updateSolarData(plantId) {
+    console.log('Updating all solar data for plant ID:', plantId);
+    
     // Update daily chart
     fetchSolarDailyData(plantId);
     
@@ -94,10 +96,18 @@ function updateSolarData(plantId) {
     if (!document.getElementById('solar-hourly').classList.contains('hidden')) {
         fetchSolarHourlyData(document.getElementById('solar-date-select').value, plantId);
     }
+    
+    // Update solar predictions table
+    updateSolarPredictionsTable(plantId);
+    
+    // Update solar alerts
+    updateSolarAlerts(plantId);
 }
 
 // Update wind data based on selected plant
 function updateWindData(plantId) {
+    console.log('Updating all wind data for plant ID:', plantId);
+    
     // Update daily chart
     fetchWindDailyData(plantId);
     
@@ -105,6 +115,278 @@ function updateWindData(plantId) {
     if (!document.getElementById('wind-hourly').classList.contains('hidden')) {
         fetchWindHourlyData(document.getElementById('wind-date-select').value, plantId);
     }
+    
+    // Update wind predictions table
+    updateWindPredictionsTable(plantId);
+    
+    // Update wind alerts
+    updateWindAlerts(plantId);
+}
+
+// Function to update solar predictions table
+function updateSolarPredictionsTable(plantId) {
+    fetch(`/api/solar_predictions?plant_id=${plantId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received solar predictions data:', data);
+            const tableBody = document.querySelector('#solar-daily table tbody');
+            if (!tableBody) {
+                console.error('Solar predictions table body not found');
+                return;
+            }
+            
+            if (!data.predictions || data.predictions.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="py-3 px-4 text-center text-gray-500">No data available</td></tr>`;
+                return;
+            }
+            
+            tableBody.innerHTML = '';
+            data.predictions.forEach(prediction => {
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-3 px-4 text-sm text-gray-900">${prediction.plant_name}</td>
+                        <td class="py-3 px-4 text-sm text-gray-900">${prediction.date}</td>
+                        <td class="py-3 px-4 text-sm text-gray-900">${prediction.total_predicted_generation}</td>
+                        <td class="py-3 px-4 text-sm text-gray-900">
+                            ${prediction.total_actual_generation ? prediction.total_actual_generation : '<span class="text-gray-500">Pending</span>'}
+                        </td>
+                        <td class="py-3 px-4 text-sm">
+                            ${prediction.recommendation_status 
+                                ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Below Threshold</span>' 
+                                : '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Normal</span>'}
+                        </td>
+                    </tr>
+                `;
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching solar predictions:', error);
+        });
+}
+
+// Function to update wind predictions table
+function updateWindPredictionsTable(plantId) {
+    fetch(`/api/wind_predictions?plant_id=${plantId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received wind predictions data:', data);
+            const tableBody = document.querySelector('#wind-daily table tbody');
+            if (!tableBody) {
+                console.error('Wind predictions table body not found');
+                return;
+            }
+            
+            if (!data.predictions || data.predictions.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="5" class="py-3 px-4 text-center text-gray-500">No data available</td></tr>`;
+                return;
+            }
+            
+            tableBody.innerHTML = '';
+            data.predictions.forEach(prediction => {
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-gray-50">
+                        <td class="py-3 px-4 text-sm text-gray-900">${prediction.plant_name}</td>
+                        <td class="py-3 px-4 text-sm text-gray-900">${prediction.date}</td>
+                        <td class="py-3 px-4 text-sm text-gray-900">${prediction.total_predicted_generation}</td>
+                        <td class="py-3 px-4 text-sm text-gray-900">
+                            ${prediction.total_actual_generation ? prediction.total_actual_generation : '<span class="text-gray-500">Pending</span>'}
+                        </td>
+                        <td class="py-3 px-4 text-sm">
+                            ${prediction.recommendation_status 
+                                ? '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Below Threshold</span>' 
+                                : '<span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Normal</span>'}
+                        </td>
+                    </tr>
+                `;
+            });
+        })
+        .catch(error => {
+            console.error('Error fetching wind predictions:', error);
+        });
+}
+
+// Function to update solar alerts
+function updateSolarAlerts(plantId) {
+    fetch(`/api/solar_alerts?plant_id=${plantId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received solar alerts data:', data);
+            const alertsContainer = document.querySelector('.solar-alerts-container');
+            if (!alertsContainer) {
+                console.error('Solar alerts container not found');
+                return;
+            }
+            
+            const alertSection = alertsContainer.querySelector('.alert-section');
+            
+            if (!data.alerts || data.alerts.length === 0) {
+                // If no alerts, remove the section if it exists
+                if (alertSection) {
+                    alertSection.remove();
+                }
+                
+                // Add recommendation button if it doesn't exist
+                if (!alertsContainer.querySelector('.recommendations-button')) {
+                    alertsContainer.innerHTML = `
+                        <div class="recommendations-button text-center mt-4">
+                            <a href="/solar_recommendation?plant_id=${plantId}" class="inline-block px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                </svg>
+                                View Solar Recommendations
+                            </a>
+                        </div>
+                    `;
+                }
+                return;
+            }
+            
+            // If there are alerts, create or update the alert section
+            if (alertSection) {
+                const alertsContainer = alertSection.querySelector('.space-y-3');
+                alertsContainer.innerHTML = '';
+                
+                data.alerts.forEach(alert => {
+                    alertsContainer.innerHTML += `
+                        <div class="p-3 bg-white rounded border border-red-200">
+                            <div class="flex justify-between">
+                                <span class="font-semibold text-gray-800">${alert.plant_name}</span>
+                                <span class="text-sm text-gray-600">${alert.date}</span>
+                            </div>
+                            <p class="text-sm text-gray-700 mt-1">${alert.message}</p>
+                        </div>
+                    `;
+                });
+            } else {
+                // If the alert section doesn't exist, create it
+                alertsContainer.innerHTML = `
+                    <div class="alert-section">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold text-red-800">Solar Energy Alerts</h3>
+                            <a href="/solar_recommendation?plant_id=${plantId}" class="text-sm text-blue-600 hover:text-blue-800">
+                                View detailed recommendations
+                            </a>
+                        </div>
+                        <div class="space-y-3">
+                            ${data.alerts.map(alert => `
+                                <div class="p-3 bg-white rounded border border-red-200">
+                                    <div class="flex justify-between">
+                                        <span class="font-semibold text-gray-800">${alert.plant_name}</span>
+                                        <span class="text-sm text-gray-600">${alert.date}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-700 mt-1">${alert.message}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching solar alerts:', error);
+        });
+}
+
+// Function to update wind alerts
+function updateWindAlerts(plantId) {
+    fetch(`/api/wind_alerts?plant_id=${plantId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received wind alerts data:', data);
+            const alertsContainer = document.querySelector('.wind-alerts-container');
+            if (!alertsContainer) {
+                console.error('Wind alerts container not found');
+                return;
+            }
+            
+            const alertSection = alertsContainer.querySelector('.alert-section');
+            
+            if (!data.alerts || data.alerts.length === 0) {
+                // If no alerts, remove the section if it exists
+                if (alertSection) {
+                    alertSection.remove();
+                }
+                
+                // Add recommendation button if it doesn't exist
+                if (!alertsContainer.querySelector('.recommendations-button')) {
+                    alertsContainer.innerHTML = `
+                        <div class="recommendations-button text-center mt-4">
+                            <a href="/wind_recommendation?plant_id=${plantId}" class="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-200">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline-block mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                                </svg>
+                                View Wind Recommendations
+                            </a>
+                        </div>
+                    `;
+                }
+                return;
+            }
+            
+            // If there are alerts, create or update the alert section
+            if (alertSection) {
+                const alertsContainer = alertSection.querySelector('.space-y-3');
+                alertsContainer.innerHTML = '';
+                
+                data.alerts.forEach(alert => {
+                    alertsContainer.innerHTML += `
+                        <div class="p-3 bg-white rounded border border-red-200">
+                            <div class="flex justify-between">
+                                <span class="font-semibold text-gray-800">${alert.plant_name}</span>
+                                <span class="text-sm text-gray-600">${alert.date}</span>
+                            </div>
+                            <p class="text-sm text-gray-700 mt-1">${alert.message}</p>
+                        </div>
+                    `;
+                });
+            } else {
+                // If the alert section doesn't exist, create it
+                alertsContainer.innerHTML = `
+                    <div class="alert-section">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-lg font-semibold text-red-800">Wind Energy Alerts</h3>
+                            <a href="/wind_recommendation?plant_id=${plantId}" class="text-sm text-blue-600 hover:text-blue-800">
+                                View detailed recommendations
+                            </a>
+                        </div>
+                        <div class="space-y-3">
+                            ${data.alerts.map(alert => `
+                                <div class="p-3 bg-white rounded border border-red-200">
+                                    <div class="flex justify-between">
+                                        <span class="font-semibold text-gray-800">${alert.plant_name}</span>
+                                        <span class="text-sm text-gray-600">${alert.date}</span>
+                                    </div>
+                                    <p class="text-sm text-gray-700 mt-1">${alert.message}</p>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching wind alerts:', error);
+        });
 }
 
 // Initialize daily charts

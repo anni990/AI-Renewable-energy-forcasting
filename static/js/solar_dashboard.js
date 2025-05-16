@@ -1,7 +1,7 @@
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', function () {
     // Get plant ID from a data attribute
     const plantId = document.querySelector('.dashboard-container')?.dataset?.plantId || '';
-    
+
     // Calculate and update "vs Yesterday" percentage
     function updateVsYesterday() {
         fetch(`/api/solar_chart_data?plant_id=${plantId}`)
@@ -10,11 +10,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.predictions && data.predictions.length >= 2) {
                     const todayGen = data.predictions[0];
                     const yesterdayGen = data.predictions[1];
-                    
+
                     if (yesterdayGen > 0) {
                         const percentChange = ((todayGen - yesterdayGen) / yesterdayGen * 100).toFixed(1);
                         const vsYesterdayElement = document.getElementById('vsYesterday');
-                        
+
                         if (vsYesterdayElement) {
                             // Determine icon and color based on whether it's positive or negative
                             let icon, cssClass;
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 icon = '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12 13a1 1 0 100 2h5a1 1 0 001-1V9a1 1 0 10-2 0v2.586l-4.293-4.293a1 1 0 00-1.414 0L8 9.586 3.707 5.293a1 1 0 00-1.414 1.414l5 5a1 1 0 001.414 0L11 9.414 14.586 13H12z" clip-rule="evenodd" /></svg>';
                                 cssClass = 'text-red-500';
                             }
-                            
+
                             vsYesterdayElement.className = `flex items-center text-sm ${cssClass}`;
                             vsYesterdayElement.innerHTML = `${icon} ${Math.abs(percentChange)}% vs Yesterday`;
                         }
@@ -41,14 +41,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('vsYesterday').textContent = 'Error calculating';
             });
     }
-    
+
     // Call the function to update the comparison
     updateVsYesterday();
-    
+
     // Update generation stats if API data is available but UI shows zero
     const generationElement = document.querySelector('.stat-card .text-3xl');
-    if (generationElement && (generationElement.textContent.trim() === '0 kWh' || 
-                              generationElement.textContent.trim() === '0.0 kWh')) {
+    if (generationElement && (generationElement.textContent.trim() === '0 kWh' ||
+        generationElement.textContent.trim() === '0.0 kWh')) {
         fetch(`/api/solar_chart_data?plant_id=${plantId}`)
             .then(response => response.json())
             .then(data => {
@@ -62,14 +62,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error fetching generation data:', error);
             });
     }
-    
+
     // Update peak generation hour if needed
     function updatePeakHour() {
         // Get today's date in YYYY-MM-DD format
         const today = new Date().toISOString().split('T')[0];
-        
+
         console.log(`Updating peak hour data for today (${today}), plant ID: ${plantId}`);
-        
+
         // Fetch hourly data for today
         fetch(`/api/hourly_solar_data?date=${today}&plant_id=${plantId}`)
             .then(response => {
@@ -82,20 +82,20 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Find the peak hour
                     let maxVal = 0;
                     let peakHour = 'N/A';
-                    
+
                     for (let i = 0; i < data.predictions.length; i++) {
                         if (data.predictions[i] > maxVal) {
                             maxVal = data.predictions[i];
                             peakHour = data.hours[i];
                         }
                     }
-                    
+
                     console.log(`Found peak hour: ${peakHour} with value: ${maxVal}`);
-                    
+
                     // Update the DOM elements
                     const peakHourElement = document.getElementById('peak-hour');
                     const peakOutputElement = document.getElementById('peak-output');
-                    
+
                     if (peakHourElement && peakHour !== 'N/A') {
                         peakHourElement.textContent = peakHour;
                         peakOutputElement.textContent = `${maxVal.toFixed(2)} kWh peak output`;
@@ -107,10 +107,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error fetching peak hour data:', error);
             });
     }
-    
+
     // Call the function to update peak hour
     updatePeakHour();
-    
+
     // Initialize hourly chart
     const hourlyChartCanvas = document.getElementById('hourlyChart');
     if (hourlyChartCanvas) {
@@ -171,13 +171,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
         });
-        
+
         // Handle date selector change
         const dateSelector = document.getElementById('dateSelector');
         if (dateSelector) {
             // Clear existing options
             dateSelector.innerHTML = '';
-            
+
             // Fetch latest 6 dates from database
             fetch(`/api/solar_chart_data?plant_id=${plantId}`)
                 .then(response => response.json())
@@ -185,26 +185,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (data.dates && data.dates.length > 0) {
                         // Get the most recent 6 dates
                         const dates = data.dates.slice(0, 6);
-                        
+
                         // Add the dates to the selector
                         dates.forEach((dateStr, index) => {
                             const option = document.createElement('option');
                             option.value = dateStr;
-                            
+
                             // Format the date display
                             const date = new Date(dateStr);
                             const today = new Date();
                             today.setHours(0, 0, 0, 0);
-                            
+
                             const dateObj = new Date(dateStr);
                             dateObj.setHours(0, 0, 0, 0);
-                            
+
                             const tomorrow = new Date(today);
                             tomorrow.setDate(tomorrow.getDate() + 1);
-                            
+
                             const yesterday = new Date(today);
                             yesterday.setDate(yesterday.getDate() - 1);
-                            
+
                             if (dateObj.getTime() === today.getTime()) {
                                 option.textContent = `${dateStr} (Today)`;
                             } else if (dateObj.getTime() === tomorrow.getTime()) {
@@ -214,10 +214,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             } else {
                                 option.textContent = dateStr;
                             }
-                            
+
                             dateSelector.appendChild(option);
                         });
-                        
+
                         // Fetch data for initial selection (most recent date)
                         fetchHourlyData(dates[0]);
                     } else {
@@ -227,10 +227,10 @@ document.addEventListener('DOMContentLoaded', function() {
                             const date = new Date(today);
                             date.setDate(today.getDate() + i);
                             const dateStr = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-                            
+
                             const option = document.createElement('option');
                             option.value = dateStr;
-                            
+
                             // Add "Today" or "Tomorrow" for better UX
                             if (i === 0) {
                                 option.textContent = `${dateStr} (Today)`;
@@ -241,38 +241,38 @@ document.addEventListener('DOMContentLoaded', function() {
                             }
                             dateSelector.appendChild(option);
                         }
-                        
+
                         // Fetch data for today
                         fetchHourlyData(today.toISOString().split('T')[0]);
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching dates:', error);
-                    
+
                     // Fallback to today + next 5 days
                     const today = new Date();
                     for (let i = 0; i < 6; i++) {
                         const date = new Date(today);
                         date.setDate(today.getDate() + i);
                         const dateStr = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-                        
+
                         const option = document.createElement('option');
                         option.value = dateStr;
-                        option.textContent = i === 0 ? `${dateStr} (Today)` : 
-                                             i === 1 ? `${dateStr} (Tomorrow)` : dateStr;
+                        option.textContent = i === 0 ? `${dateStr} (Today)` :
+                            i === 1 ? `${dateStr} (Tomorrow)` : dateStr;
                         dateSelector.appendChild(option);
                     }
-                    
+
                     // Fetch data for today
                     fetchHourlyData(today.toISOString().split('T')[0]);
                 });
-            
+
             // Add event listener for date change
-            dateSelector.addEventListener('change', function() {
+            dateSelector.addEventListener('change', function () {
                 const selectedDate = this.value;
                 fetchHourlyData(selectedDate);
             });
-            
+
             // Function to fetch hourly data for selected date
             function fetchHourlyData(selectedDate) {
                 // Show loading state on chart
@@ -281,9 +281,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     hourlyChart.data.datasets[1].data = [];
                     hourlyChart.update();
                 }
-                
+
                 console.log(`Fetching hourly solar data for date: ${selectedDate}, plant ID: ${plantId}`);
-                
+
                 // Make AJAX request to get hourly data for selected date
                 fetch(`/api/hourly_solar_data?date=${selectedDate}&plant_id=${plantId}`)
                     .then(response => {
@@ -297,9 +297,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             hourlyChart.data.labels = data.hours;
                             hourlyChart.data.datasets[0].data = data.predictions;
                             hourlyChart.data.datasets[1].data = data.actuals;
-                            
+
                             console.log(`Hourly data: ${data.hours.length} hours, ${data.predictions.length} predictions`);
-                            
+
                             // For future dates, actual generation will be empty, so update the label
                             const today = new Date();
                             const selectedDateObj = new Date(selectedDate);
@@ -307,20 +307,24 @@ document.addEventListener('DOMContentLoaded', function() {
                                 // This is a future date
                                 hourlyChart.data.datasets[1].label = 'Estimated Actual Generation (kWh)';
                                 hourlyChart.data.datasets[1].borderDash = [5, 5]; // Add dashed line for future actuals
-                                
+
                                 // Add a notice above the chart
                                 const chartContainer = hourlyChartCanvas.parentElement.parentElement;
                                 let noticeElement = chartContainer.querySelector('.future-notice');
-                                
+
                                 if (!noticeElement) {
                                     noticeElement = document.createElement('div');
                                     noticeElement.className = 'future-notice bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4 rounded-r';
                                     chartContainer.insertBefore(noticeElement, chartContainer.firstChild);
                                 }
-                                
+
                                 // Calculate days in future
-                                const daysInFuture = Math.floor((selectedDateObj - today) / (1000 * 60 * 60 * 24)) + 1;
-                                noticeElement.innerHTML = `
+                                const daysInFuture = Math.floor((selectedDateObj - today) / (1000 * 60 * 60 * 24));
+                                if (daysInFuture === 0) {
+                                    noticeElement.remove();
+                                } else {
+                                    noticeElement.innerHTML = `
+                                        <div class="flex">
                                     <div class="flex">
                                         <div class="flex-shrink-0">
                                             <svg class="h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -334,11 +338,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                         </div>
                                     </div>
                                 `;
+                                }
                             } else {
                                 // Past or current date
                                 hourlyChart.data.datasets[1].label = 'Actual Generation (kWh)';
                                 hourlyChart.data.datasets[1].borderDash = []; // Remove dashed line
-                                
+
                                 // Remove notice if it exists
                                 const chartContainer = hourlyChartCanvas.parentElement.parentElement;
                                 const noticeElement = chartContainer.querySelector('.future-notice');
@@ -346,7 +351,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     noticeElement.remove();
                                 }
                             }
-                            
+
                             hourlyChart.update();
                         } else {
                             console.error('Error fetching hourly data:', data.message);
@@ -355,8 +360,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             ctx.font = '16px Arial';
                             ctx.fillStyle = '#666';
                             ctx.textAlign = 'center';
-                            ctx.fillText('No data available for selected date', hourlyChartCanvas.width/2, hourlyChartCanvas.height/2);
-                            
+                            ctx.fillText('No data available for selected date', hourlyChartCanvas.width / 2, hourlyChartCanvas.height / 2);
+
                             // Remove notice if it exists
                             const chartContainer = hourlyChartCanvas.parentElement.parentElement;
                             const noticeElement = chartContainer.querySelector('.future-notice');
@@ -373,7 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             hourlyChart.data.datasets[1].data = [];
                             hourlyChart.update();
                         }
-                        
+
                         // Remove notice if it exists
                         const chartContainer = hourlyChartCanvas.parentElement.parentElement;
                         const noticeElement = chartContainer.querySelector('.future-notice');
@@ -399,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     dailyPredictions = data.predictions || [];
                     dailyActuals = data.actuals || [];
                     dailyThresholds = new Array(dailyLabels.length).fill(data.threshold || 0);
-                    
+
                     // Initialize chart with fetched data
                     initializeDailyChart();
                 })
@@ -412,7 +417,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Initialize with existing data
             initializeDailyChart();
         }
-        
+
         function initializeDailyChart() {
             const dailyChart = new Chart(dailyChartCanvas, {
                 type: 'bar',
@@ -476,7 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-    
+
     // Initialize metrics chart (replacing efficiency pie chart)
     const metricsChartCanvas = document.getElementById('metricsChart');
     if (metricsChartCanvas) {
@@ -486,12 +491,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Get the most recent prediction data
                 const latestPrediction = data.predictions && data.predictions.length > 0 ? data.predictions[0] : 0;
                 const threshold = data.threshold || 0;
-                
+
                 // Calculate metrics
-                const avgPrediction = data.predictions && data.predictions.length > 0 
-                    ? data.predictions.reduce((sum, val) => sum + val, 0) / data.predictions.length 
+                const avgPrediction = data.predictions && data.predictions.length > 0
+                    ? data.predictions.reduce((sum, val) => sum + val, 0) / data.predictions.length
                     : 0;
-                
+
                 // Create the metrics chart
                 const metricsChart = new Chart(metricsChartCanvas, {
                     type: 'bar',
@@ -522,7 +527,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             },
                             tooltip: {
                                 callbacks: {
-                                    label: function(context) {
+                                    label: function (context) {
                                         return `${context.dataset.label}: ${context.raw.toFixed(1)} kWh`;
                                     }
                                 }
@@ -547,14 +552,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 ctx.font = '14px Arial';
                 ctx.fillStyle = '#666';
                 ctx.textAlign = 'center';
-                ctx.fillText('Error loading metrics data', metricsChartCanvas.width/2, metricsChartCanvas.height/2);
+                ctx.fillText('Error loading metrics data', metricsChartCanvas.width / 2, metricsChartCanvas.height / 2);
             });
     }
 
     // Setup refresh data button
     const refreshButton = document.getElementById('refreshData');
     if (refreshButton) {
-        refreshButton.addEventListener('click', function() {
+        refreshButton.addEventListener('click', function () {
             // Add loading state
             this.disabled = true;
             this.innerHTML = `
@@ -564,7 +569,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 </svg>
                 Refreshing...
             `;
-            
+
             // Call the API to refresh data
             fetch(`/api/refresh-solar-data`)
                 .then(response => response.json())
@@ -598,7 +603,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         });
     }
-    
+
     // Fetch weather data
     fetchWeatherData();
 });
@@ -615,10 +620,10 @@ function fetchWeatherData() {
                 const temperature = weatherData.temperature || 0;
                 const windSpeed = weatherData.wind_speed || 0;
                 const radiation = weatherData.radiation || 0;
-                
+
                 // Update weather condition display with icon
                 document.getElementById('weather-condition').innerHTML = getWeatherIcon(condition) + ' ' + condition;
-                
+
                 // Update weather impact text
                 let impactText = '';
                 if (condition === 'Sunny' || condition === 'Clear') {
@@ -628,9 +633,9 @@ function fetchWeatherData() {
                 } else {
                     impactText = 'Suboptimal for solar generation';
                 }
-                
+
                 document.getElementById('weather-impact').textContent = impactText;
-                
+
                 // Create the weather detail cards
                 const weatherContainer = document.getElementById('weather-data');
                 if (weatherContainer) {
@@ -690,20 +695,20 @@ function getWeatherIcon(condition) {
             return `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 inline-block text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
             </svg>`;
-        
+
         case 'cloudy':
         case 'partly cloudy':
         case 'mostly cloudy':
             return `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 inline-block text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
             </svg>`;
-        
+
         case 'rainy':
         case 'rain':
             return `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 inline-block text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
             </svg>`;
-        
+
         default:
             return `<svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 inline-block text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
