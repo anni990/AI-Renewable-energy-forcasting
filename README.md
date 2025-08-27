@@ -1,146 +1,234 @@
 # AI-Powered Renewable Energy Forecasting System
 
-A comprehensive dashboard system for solar and wind energy forecasting, featuring user-specific dashboards based on plant type and customized features for different user roles.
+A comprehensive dashboard system for solar and wind energy forecasting, featuring user-specific dashboards based on plant type and customized features for different user roles. Now with **Docker deployment** and **CI/CD pipeline** for Azure VM.
 
-## Setup Instructions
+## 🚀 Quick Deploy to Azure
+
+### Option 1: Automated CI/CD (Recommended)
+1. **Fork this repository**
+2. **Configure GitHub secrets** (see [QUICKSTART.md](QUICKSTART.md))
+3. **Push to main branch** - automatic deployment!
+
+### Option 2: Manual Deployment
+```bash
+# See detailed instructions in DEPLOYMENT.md
+./scripts/deploy.sh
+```
+
+## 📋 Features
+
+- **Role-based Dashboards**: Solar, Wind, and Admin interfaces
+- **AI-powered Forecasting**: Machine learning models for energy prediction
+- **Real-time Weather Integration**: Open-Meteo API integration
+- **Threshold Alerts**: Automated recommendations for low generation
+- **Azure SQL Server**: Cloud database integration
+- **Docker Deployment**: Containerized application
+- **CI/CD Pipeline**: Automated testing and deployment
+
+## 🛠️ Technology Stack
+
+- **Backend**: Python Flask, SQLAlchemy, scikit-learn
+- **Frontend**: HTML5, CSS3, JavaScript, Chart.js
+- **Database**: Azure SQL Server
+- **Deployment**: Docker, Nginx, Gunicorn
+- **Cloud**: Azure VM, GitHub Actions CI/CD
+- **APIs**: Open-Meteo Weather API
+
+## 📁 Project Structure
+
+```
+├── app.py                      # Main Flask application
+├── models/                     # Trained ML models
+│   ├── solar_power_rf_model.pkl
+│   └── wind_power_rf_model.pkl.gz
+├── ml_pipeline/                # ML processing pipeline
+│   ├── fetch_weather.py
+│   ├── predict_hourly.py
+│   └── aggregate_daily.py
+├── static/                     # Frontend assets
+├── templates/                  # Jinja2 templates
+├── scripts/                    # Deployment scripts
+├── .github/workflows/          # CI/CD pipeline
+├── Dockerfile                  # Container configuration
+├── docker-compose.yml          # Production compose
+├── nginx/                      # Web server config
+└── docs/                      # Documentation
+```
+
+## 🔧 Local Development
 
 ### Prerequisites
-- Python 3.9+
-- MySQL via XAMPP
-- Web browser
+- Python 3.10+
+- Docker & Docker Compose
+- Azure SQL Server credentials
 
-### Database Setup with XAMPP
-1. Install XAMPP from https://www.apachefriends.org/ if not already installed
-2. Open XAMPP Control Panel
-3. Start the MySQL service
-4. The application will automatically create the database when you run setup.py
+### Setup
 
-### Installation
+### Setup
 
-1. Clone the repository:
-```
-git clone <repository-url>
-cd <repository-folder>
-```
+```bash
+# Clone repository
+git clone https://github.com/your-username/AI-Renewable-energy-forcasting.git
+cd AI-Renewable-energy-forcasting
 
-2. Create and activate a virtual environment:
-```
+# Create .env file
+cp .env.example .env
+# Edit .env with your Azure SQL credentials
+
+# Option 1: Docker Development
+docker-compose -f docker-compose.dev.yml up --build
+
+# Option 2: Local Python
 python -m venv venv
-venv\Scripts\activate  # On Windows
-source venv/bin/activate  # On macOS/Linux
-```
-
-3. Run the setup script:
-```
-python setup.py
-```
-This will:
-- Check MySQL connection via XAMPP
-- Create the database if it doesn't exist
-- Install required Python packages
-
-4. Start the application:
-```
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
 python app.py
 ```
-This will create all necessary database tables.
 
-5. Access the application:
-Open your web browser and navigate to `http://127.0.0.1:5000`
+Access the application at `http://localhost:5000`
 
-6. Register your first user, which will automatically be given admin privileges.
+## 🚀 Production Deployment
 
-## System Features
+### Azure VM Deployment
+See detailed guides:
+- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Complete deployment guide
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick commands reference
 
-- **User-Specific Dashboards**:
-  - Solar plant users: Detailed solar generation metrics
-  - Wind plant users: Wind-specific performance data
-  - Administrators: Complete overview of all plants with tabbed interface
+### Key Steps:
+1. **Create Azure VM** (Standard_B2s recommended for student subscription)
+2. **Setup Docker & dependencies** using provided scripts
+3. **Configure CI/CD** with GitHub Actions
+4. **Deploy application** automatically on git push
 
-- **Plant Management**:
-  - Add, edit, and delete plants
-  - View plant details and performance metrics
+## 📊 System Architecture
 
-- **Weather Integration**:
-  - Real-time weather data affecting generation
-  - Visualization of weather conditions
+### Database Schema (Azure SQL Server)
+- **Plants** → **Users** (1:many)
+- **Plants** → **Predictions** (1:many)
+- Separate tables for solar/wind hourly and daily predictions
 
-- **Performance Monitoring**:
-  - Daily and hourly forecasts
-  - Historical data comparison
-  - Threshold alerts
+### ML Pipeline Flow
+1. **Weather Fetch**: Open-Meteo API (5-day forecast)
+2. **Hourly Prediction**: scikit-learn models with domain logic
+3. **Daily Aggregation**: Sum hourly data, generate recommendations
 
-## Database Structure
+### User Roles & Access
+- **Solar Users**: Solar plant dashboard only
+- **Wind Users**: Wind plant dashboard only  
+- **Admins**: Multi-plant overview with tabs
 
-The system uses MySQL via XAMPP with the following tables (all created automatically):
-- `users`: User account information
-- `plants`: Plant details and configuration
-- `hourly_solar_predictions`: Hourly solar generation forecasts
-- `hourly_wind_predictions`: Hourly wind generation forecasts
-- `daily_solar_predictions`: Aggregated daily solar generation data
-- `daily_wind_predictions`: Aggregated daily wind generation data
+## 🔐 Environment Variables
 
-## Project Overview
-
-This system provides a centralized AI forecasting platform designed for a company's wind and solar power plants. It enables stakeholders to monitor and plan energy generation by leveraging machine learning models trained on hourly weather data.
-
-## Key Features
-
-- Real-time weather data integration
-- AI-powered energy generation forecasting
-- Interactive dashboard with charts for visualizing predictions
-- Hourly and daily generation predictions
-- Threshold-based recommendations
-- Secure admin authentication
-
-## Technology Stack
-
-- **Frontend**: HTML, CSS, JavaScript, Chart.js
-- **Backend**: Python (Flask)
-- **ML Libraries**: scikit-learn, pandas, numpy
-- **Database**: SQLite (for MVP), MySQL (for production)
-- **Weather API**: OpenWeatherMap or Tomorrow.io
-
-## Project Structure
-
-```
-├── app.py                     # Flask app entry point
-│
-├── models/                    # Trained ML models
-│   ├── solar_model.pkl
-│   ├── wind_model.pkl
-│
-├── static/                    # Static assets
-│   ├── css/
-│   ├── js/
-│
-├── templates/                 # HTML pages (Views)
-│   ├── home.html
-│   ├── register.html
-│   ├── login.html
-│   ├── dashboard.html
-│
-├── ml_pipeline/               # ML logic
-│   ├── fetch_weather.py       # Fetch hourly data via API
-│   ├── predict_hourly.py      # Predicts hour-wise
-│   ├── aggregate_daily.py     # Sum up hourly to daily
-│
-├── database/
-│   ├── db_connection.py
-│   ├── create_tables.sql
+Required in `.env` file:
+```env
+AZURE_SQL_SERVER=your-server.database.windows.net
+AZURE_SQL_USERNAME=your-username
+AZURE_SQL_PASSWORD=your-password
+AZURE_SQL_DATABASE=your-database-name
+SECRET_KEY=your-secret-key-here
 ```
 
-## System Flow
+## 🧪 API Endpoints
 
-1. Admin registers a plant location with threshold value
-2. Admin logs in daily to view dashboard
-3. System fetches 5-day hourly weather forecast
-4. ML models predict energy generation (hour-wise)
-5. System aggregates hourly values to compute day-wise generation
-6. Data is stored in database (hourly and daily tables)
-7. System generates recommendations if predicted generation is below threshold
-8. Dashboard displays real-time predictions and past generation data with charts
+### Web Routes
+- `/` - Home page
+- `/login` - User authentication
+- `/dashboard` - Role-based dashboard routing
+- `/solar_dashboard` - Solar plant interface
+- `/wind_dashboard` - Wind plant interface
+- `/admin_dashboard` - Admin multi-plant view
 
-## License
+### API Routes
+- `/api/refresh-solar-data` - Trigger solar forecast update
+- `/api/refresh-wind-data` - Trigger wind forecast update
+- `/api/solar_chart_data` - Get solar prediction data
+- `/api/wind_chart_data` - Get wind prediction data
+- `/api/weather-data` - Current weather information
+- `/health` - Container health check
 
-This project is licensed under the MIT License - see the LICENSE file for details. 
+## 🛡️ Security Features
+
+- **Role-based access control**
+- **Session management** with Flask-Login
+- **SQL injection prevention** with parameterized queries
+- **Environment-based secrets** management
+- **Docker security** with non-root user
+- **Nginx security headers**
+
+## 📈 Monitoring & Logs
+
+```bash
+# Application logs
+sudo docker logs renewable-energy-app
+
+# System monitoring
+htop
+sudo docker stats
+
+# Log files
+tail -f /opt/renewable-energy-app/logs/access.log
+tail -f /opt/renewable-energy-app/logs/error.log
+```
+
+## 🔄 CI/CD Pipeline
+
+Automated workflow on push to main:
+1. **Test**: Python linting and tests
+2. **Build**: Docker image creation
+3. **Deploy**: Push to Docker Hub & deploy to Azure VM
+
+## 💰 Cost Optimization
+
+For Azure Student subscription:
+- **VM Size**: Standard_B2s (2 vCPUs, 4GB RAM)
+- **Auto-shutdown**: Schedule VM shutdown during off-hours
+- **Monitoring**: Set up cost alerts
+- **Storage**: Use Standard HDD for logs
+
+## 🚨 Troubleshooting
+
+### Common Issues
+1. **Database connection**: Check Azure SQL firewall settings
+2. **Docker issues**: Verify ODBC driver installation
+3. **Port conflicts**: Ensure ports 80/443 are available
+4. **Memory issues**: Monitor container resource usage
+
+### Debug Commands
+```bash
+# Check container status
+sudo docker ps -a
+
+# View application logs
+sudo docker logs renewable-energy-app
+
+# Test database connection
+sudo docker exec -it renewable-energy-app python -c "from app import db; print('DB OK')"
+
+# Restart services
+sudo systemctl restart renewable-energy-app
+sudo systemctl restart nginx
+```
+
+## 📝 Contributing
+
+1. Fork the repository
+2. Create feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open Pull Request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🤝 Support
+
+- **Documentation**: [DEPLOYMENT.md](DEPLOYMENT.md) for deployment help
+- **Quick Start**: [QUICKSTART.md](QUICKSTART.md) for fast setup
+- **Issues**: GitHub Issues for bug reports
+- **Discussions**: GitHub Discussions for questions
+
+---
+
+**Live Demo**: `http://your-azure-vm-ip` (after deployment)
+**Status**: [![CI/CD Pipeline](https://github.com/your-username/AI-Renewable-energy-forcasting/workflows/CI/CD%20Pipeline/badge.svg)](https://github.com/your-username/AI-Renewable-energy-forcasting/actions) 

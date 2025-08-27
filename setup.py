@@ -3,22 +3,29 @@ import sys
 import subprocess
 import pymysql
 
-def check_mysql_connection():
+def check_database_connection():
+    """Check if we have Azure SQL Server connection details"""
     try:
-        # Connect to MySQL server (not to a specific database)
-        conn = pymysql.connect(
-            host='localhost',
-            user='root',
-            password=''
-        )
-        # Create database if it doesn't exist
-        with conn.cursor() as cursor:
-            cursor.execute("CREATE DATABASE IF NOT EXISTS renewable_energy")
-            print("✅ Database 'renewable_energy' created or already exists.")
-        conn.close()
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        required_vars = ['AZURE_SQL_SERVER', 'AZURE_SQL_USERNAME', 'AZURE_SQL_PASSWORD', 'AZURE_SQL_DATABASE']
+        missing_vars = []
+        
+        for var in required_vars:
+            if not os.environ.get(var):
+                missing_vars.append(var)
+        
+        if missing_vars:
+            print(f"❌ Missing environment variables: {', '.join(missing_vars)}")
+            print("Please make sure your .env file contains all Azure SQL Server credentials.")
+            return False
+        
+        print("✅ Azure SQL Server environment variables found.")
         return True
     except Exception as e:
-        print(f"❌ Error connecting to MySQL: {e}")
+        print(f"❌ Error checking database configuration: {e}")
         return False
 
 def install_dependencies():
@@ -36,13 +43,14 @@ def main():
     print("  Renewable Energy Forecasting System - Setup")
     print("="*60)
     
-    print("\nChecking MySQL connection...")
-    if not check_mysql_connection():
-        print("\n⚠️ Could not connect to MySQL server.")
-        print("Please make sure XAMPP is installed and MySQL service is running.")
-        print("1. Open XAMPP Control Panel")
-        print("2. Start MySQL service")
-        print("3. Run this setup script again")
+    print("\nChecking Azure SQL Server configuration...")
+    if not check_database_connection():
+        print("\n⚠️ Azure SQL Server configuration incomplete.")
+        print("Please make sure your .env file contains:")
+        print("  AZURE_SQL_SERVER=your-server.database.windows.net")
+        print("  AZURE_SQL_USERNAME=your-username")
+        print("  AZURE_SQL_PASSWORD=your-password")
+        print("  AZURE_SQL_DATABASE=your-database-name")
         return
     
     if not install_dependencies():
@@ -52,7 +60,6 @@ def main():
     print("✅ Setup completed successfully!")
     print("\nYou can now run the application with:")
     print("  python app.py")
-    print("\nThis will create the database tables and start the server.")
     print("\nThen visit: http://127.0.0.1:5000 in your browser")
     print("\nRegister your first user, which will automatically be an admin.")
     print("="*60)

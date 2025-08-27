@@ -57,20 +57,29 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
     print(f"Hourly predictions: {len(hourly_predictions)}, Daily predictions: {len(daily_predictions)}")
     
     # Import necessary modules without importing models directly
-    import mysql.connector
-    from mysql.connector import Error
+    import pyodbc
     import json
     from datetime import datetime
     import os
     
     try:
-        # Connect directly to MySQL to avoid SQLAlchemy context issues
-        conn = mysql.connector.connect(
-            host=os.environ.get('DB_HOST', 'localhost'),
-            user=os.environ.get('DB_USER', 'root'),
-            password=os.environ.get('DB_PASSWORD', ''),
-            database=os.environ.get('DB_NAME', 'renewable_energy')
+        # Connect directly to Azure SQL Server
+        server = os.environ.get('AZURE_SQL_SERVER', 'localhost')
+        database = os.environ.get('AZURE_SQL_DATABASE', 'renewable_energy')
+        username = os.environ.get('AZURE_SQL_USERNAME', 'root')
+        password = os.environ.get('AZURE_SQL_PASSWORD', '')
+        
+        conn_str = (
+            f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+            f"SERVER={server};"
+            f"DATABASE={database};"
+            f"UID={username};"
+            f"PWD={password};"
+            f"Encrypt=yes;"
+            f"TrustServerCertificate=no;"
         )
+        
+        conn = pyodbc.connect(conn_str)
         
         if not conn:
             print("Error: Could not connect to the database")
@@ -98,7 +107,7 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
             # Check if record exists
             check_query = f"""
             SELECT id FROM {hourly_table} 
-            WHERE plant_id = %s AND timestamp = %s
+            WHERE plant_id = ? AND timestamp = ?
             """
             cursor.execute(check_query, (plant_id, timestamp_str))
             existing_record = cursor.fetchone()
@@ -110,8 +119,8 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
                 # Update existing record
                 update_query = f"""
                 UPDATE {hourly_table}
-                SET weather_data = %s, predicted_generation = %s, created_at = NOW()
-                WHERE plant_id = %s AND timestamp = %s
+                SET weather_data = ?, predicted_generation = ?, created_at = GETDATE()
+                WHERE plant_id = ? AND timestamp = ?
                 """
                 cursor.execute(update_query, (weather_data_json, predicted_gen, plant_id, timestamp_str))
                 updated_hourly += 1
@@ -120,7 +129,7 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
                 # Insert new record
                 insert_query = f"""
                 INSERT INTO {hourly_table} (plant_id, timestamp, weather_data, predicted_generation, created_at)
-                VALUES (%s, %s, %s, %s, NOW())
+                VALUES (?, ?, ?, ?, GETDATE())
                 """
                 cursor.execute(insert_query, (plant_id, timestamp_str, weather_data_json, predicted_gen))
                 created_hourly += 1
@@ -138,7 +147,7 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
             # Check if record exists
             check_query = f"""
             SELECT id FROM {daily_table} 
-            WHERE plant_id = %s AND date = %s
+            WHERE plant_id = ? AND date = ?
             """
             cursor.execute(check_query, (plant_id, date_str))
             existing_record = cursor.fetchone()
@@ -151,8 +160,8 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
                 # Update existing record
                 update_query = f"""
                 UPDATE {daily_table}
-                SET total_predicted_generation = %s, recommendation_status = %s, recommendation_message = %s, created_at = NOW()
-                WHERE plant_id = %s AND date = %s
+                SET total_predicted_generation = ?, recommendation_status = ?, recommendation_message = ?, created_at = GETDATE()
+                WHERE plant_id = ? AND date = ?
                 """
                 cursor.execute(update_query, (pred_gen, is_below, recommendation, plant_id, date_str))
                 updated_daily += 1
@@ -161,7 +170,7 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
                 # Insert new record
                 insert_query = f"""
                 INSERT INTO {daily_table} (plant_id, date, total_predicted_generation, recommendation_status, recommendation_message, created_at)
-                VALUES (%s, %s, %s, %s, %s, NOW())
+                VALUES (?, ?, ?, ?, ?, GETDATE())
                 """
                 cursor.execute(insert_query, (plant_id, date_str, pred_gen, is_below, recommendation))
                 created_daily += 1
@@ -174,7 +183,7 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
         print(f"Daily records: {updated_daily} updated, {created_daily} created")
         
     except Exception as e:
-        if 'conn' in locals() and conn.is_connected():
+        if 'conn' in locals():
             conn.rollback()
         print(f"ERROR updating database: {str(e)}")
         import traceback
@@ -182,7 +191,7 @@ def save_predictions_to_db(hourly_predictions, daily_predictions, plant_id, db, 
     finally:
         if 'cursor' in locals():
             cursor.close()
-        if 'conn' in locals() and conn.is_connected():
+        if 'conn' in locals():
             conn.close()
     
     print(f"==== Completed save_predictions_to_db ====")

@@ -1,0 +1,32 @@
+# Docker Compose for development and production
+version: '3.8'
+
+services:
+  renewable-energy-app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - AZURE_SQL_SERVER=${AZURE_SQL_SERVER}
+      - AZURE_SQL_USERNAME=${AZURE_SQL_USERNAME}
+      - AZURE_SQL_PASSWORD=${AZURE_SQL_PASSWORD}
+      - AZURE_SQL_DATABASE=${AZURE_SQL_DATABASE}
+      - SECRET_KEY=${SECRET_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    volumes:
+      - ./logs:/app/logs
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  logs:

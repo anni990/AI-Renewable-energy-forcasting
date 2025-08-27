@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.sql import func
+from sqlalchemy import text
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
@@ -15,7 +16,17 @@ load_dotenv()
 # Initialize Flask app
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-for-dev')
-app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_HOST')}/{os.environ.get('DB_NAME')}"
+# app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+pymysql://{os.environ.get('DB_USER')}:{os.environ.get('DB_PASSWORD')}@{os.environ.get('DB_HOST')}/{os.environ.get('DB_NAME')}"
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+        f"mssql+pyodbc://"
+        f"{os.environ.get('AZURE_SQL_USERNAME')}:"
+        f"{os.environ.get('AZURE_SQL_PASSWORD')}@"
+        f"{os.environ.get('AZURE_SQL_SERVER')}/"
+        f"{os.environ.get('AZURE_SQL_DATABASE')}"
+        "?driver=ODBC+Driver+18+for+SQL+Server"
+        "&Encrypt=yes"
+        "&TrustServerCertificate=no"
+    )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 
@@ -49,76 +60,29 @@ app.jinja_env.globals['timedelta'] = timedelta
 # Initialize SQLAlchemy
 db = SQLAlchemy(app)
 
+# Helper function for date filtering in SQL Server
+def date_filter(column, date_value):
+    """Helper function to create date filtering for SQL Server compatibility"""
+    return func.cast(column, db.Date) == date_value
+
 # Database configuration
 DB_CONFIG = {
-    'host': os.environ.get('DB_HOST', 'localhost'),
-    'user': os.environ.get('DB_USER', 'root'),
-    'password': os.environ.get('DB_PASSWORD', ''),
-    'database': os.environ.get('DB_NAME', 'renewable_energy')
+    'host': os.environ.get('AZURE_SQL_SERVER', 'localhost'),
+    'user': os.environ.get('AZURE_SQL_USERNAME', 'root'),
+    'password': os.environ.get('AZURE_SQL_PASSWORD', ''),
+    'database': os.environ.get('AZURE_SQL_DATABASE', 'renewable_energy')
 }
 
 def get_db_connection():
-    """Create a database connection to the MySQL database"""
-    conn = None
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        return conn
-    except Error as e:
-        print(f"Error connecting to database: {e}")
-    
-    return conn
+    """This function is no longer needed as we use SQLAlchemy for Azure SQL Server"""
+    print("Direct database connections not needed with SQLAlchemy.")
+    return None
 
 def init_db():
     """Initialize the database with tables if they don't exist"""
-    # First, create the database if it doesn't exist
-    try:
-        temp_conn = mysql.connector.connect(
-            host=DB_CONFIG['host'],
-            user=DB_CONFIG['user'],
-            password=DB_CONFIG['password']
-        )
-        cursor = temp_conn.cursor()
-        cursor.execute(f"CREATE DATABASE IF NOT EXISTS {DB_CONFIG['database']}")
-        cursor.close()
-        temp_conn.close()
-        print(f"Database '{DB_CONFIG['database']}' created or already exists.")
-    except Error as e:
-        print(f"Error creating database: {e}")
-        return
-
-    # Now connect to the database and create tables
-    conn = get_db_connection()
-    
-    if conn is not None:
-        try:
-            cursor = conn.cursor()
-            
-            # Read SQL script file
-            sql_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'database', 'create_tables.sql')
-            if os.path.exists(sql_path):
-                with open(sql_path, 'r') as f:
-                    sql_script = f.read()
-                
-                # Execute SQL script statement by statement
-                for statement in sql_script.split(';'):
-                    if statement.strip():
-                        try:
-                            cursor.execute(statement)
-                            conn.commit()
-                        except Error as e:
-                            print(f"Error executing statement: {statement}")
-                            print(f"Error message: {e}")
-                
-                print("Database tables initialized successfully.")
-            else:
-                print(f"SQL script file not found at {sql_path}")
-        except Error as e:
-            print(f"Error initializing database: {e}")
-        finally:
-            cursor.close()
-            conn.close()
-    else:
-        print("Error: Could not establish connection to database.")
+    # For Azure SQL Server, database already exists, just ensure tables are created
+    print(f"Database '{DB_CONFIG['database']}' assumed to exist in Azure SQL Server.")
+    print("Database initialization completed - tables will be created by SQLAlchemy.")
 
 # Import models
 class User(db.Model):
@@ -462,7 +426,7 @@ def dashboard():
             HourlySolarPrediction,
             Plant.name.label('plant_name')
         ).join(Plant).filter(
-            func.date(HourlySolarPrediction.timestamp) == today
+            date_filter(HourlySolarPrediction.timestamp, today)
         ).order_by(HourlySolarPrediction.timestamp, Plant.name).all()
         
         # Format hourly solar data for charts
@@ -481,7 +445,7 @@ def dashboard():
             HourlyWindPrediction,
             Plant.name.label('plant_name')
         ).join(Plant).filter(
-            func.date(HourlyWindPrediction.timestamp) == today
+            date_filter(HourlyWindPrediction.timestamp, today)
         ).order_by(HourlyWindPrediction.timestamp, Plant.name).all()
         
         # Format hourly wind data for charts
@@ -533,9 +497,9 @@ def dashboard():
             
         # Get available dates for hourly data selection
         available_dates = db.session.query(
-            func.date(HourlySolarPrediction.timestamp).label('date')
+            func.cast(HourlySolarPrediction.timestamp, db.Date).label('date')
         ).distinct().order_by(
-            func.date(HourlySolarPrediction.timestamp).desc()
+            func.cast(HourlySolarPrediction.timestamp, db.Date).desc()
         ).limit(7).all()
         
         date_options = [date[0].strftime('%Y-%m-%d') for date in available_dates]
@@ -619,7 +583,7 @@ def dashboard():
         # Get hourly solar predictions for today
         solar_data = HourlySolarPrediction.query.filter(
             HourlySolarPrediction.plant_id == current_user.plant_id,
-            func.date(HourlySolarPrediction.timestamp) == today
+            date_filter(HourlySolarPrediction.timestamp, today)
         ).all()
         
         # If no data for today, run forecast update
@@ -649,7 +613,7 @@ def dashboard():
                 # Refresh data from database
                 solar_data = HourlySolarPrediction.query.filter(
                     HourlySolarPrediction.plant_id == current_user.plant_id,
-                    func.date(HourlySolarPrediction.timestamp) == today
+                    date_filter(HourlySolarPrediction.timestamp, today)
                 ).all()
             except Exception as e:
                 print(f"Error updating forecasts: {str(e)}")
@@ -692,7 +656,7 @@ def dashboard():
         # Get hourly wind predictions for today
         wind_data = HourlyWindPrediction.query.filter(
             HourlyWindPrediction.plant_id == current_user.plant_id,
-            func.date(HourlyWindPrediction.timestamp) == today
+            date_filter(HourlyWindPrediction.timestamp, today)
         ).all()
         
         # If no data for today AND no predictions for upcoming days, run forecast update
@@ -719,7 +683,7 @@ def dashboard():
                 # Refresh data from database
                 wind_data = HourlyWindPrediction.query.filter(
                     HourlyWindPrediction.plant_id == current_user.plant_id,
-                    func.date(HourlyWindPrediction.timestamp) == today
+                    date_filter(HourlyWindPrediction.timestamp, today)
                 ).all()
             except Exception as e:
                 print(f"Error updating wind forecasts: {str(e)}")
@@ -1169,7 +1133,7 @@ def hourly_wind_data():
         # Get hourly predictions for the specified date
         hourly_predictions = HourlyWindPrediction.query.filter(
             HourlyWindPrediction.plant_id == plant_id,
-            func.date(HourlyWindPrediction.timestamp) == date_obj
+            date_filter(HourlyWindPrediction.timestamp, date_obj)
         ).order_by(HourlyWindPrediction.timestamp).all()
         
         # Format the data for the chart
@@ -1449,7 +1413,7 @@ def hourly_solar_data():
         # Get hourly predictions for the specified date
         hourly_predictions = HourlySolarPrediction.query.filter(
             HourlySolarPrediction.plant_id == plant_id,
-            func.date(HourlySolarPrediction.timestamp) == date_obj
+            date_filter(HourlySolarPrediction.timestamp, date_obj)
         ).order_by(HourlySolarPrediction.timestamp).all()
         
         # Format the data for the chart
@@ -1565,7 +1529,7 @@ def admin_hourly_data():
                 HourlySolarPrediction,
                 Plant.name.label('plant_name')
             ).join(Plant).filter(
-                func.date(HourlySolarPrediction.timestamp) == date_obj
+                date_filter(HourlySolarPrediction.timestamp, date_obj)
             )
             
             # Filter by plant_id if specified
@@ -1654,7 +1618,7 @@ def admin_hourly_data():
                 HourlyWindPrediction,
                 Plant.name.label('plant_name')
             ).join(Plant).filter(
-                func.date(HourlyWindPrediction.timestamp) == date_obj
+                date_filter(HourlyWindPrediction.timestamp, date_obj)
             )
             
             # Filter by plant_id if specified
@@ -2034,6 +1998,15 @@ def wind_recommendation():
                           future_date=future_date,
                           time_period=time_period)
 
+@app.route('/health')
+def health_check():
+    """Health check endpoint for Docker and load balancers"""
+    return jsonify({
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'version': '1.0.0'
+    }), 200
+
 if __name__ == '__main__':
     # Initialize the database before running the app
     init_db()
@@ -2046,4 +2019,12 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Error creating database tables: {e}")
     
-    app.run(debug=True) 
+    # Run app with production settings if deployed
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    
+    app.run(
+        host='0.0.0.0',
+        port=port,
+        debug=debug_mode
+    ) 
