@@ -19,7 +19,6 @@ COPY . .
 # Create logs directory
 RUN mkdir -p /app/logs
 
-
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 RUN chown -R appuser:appuser /app
