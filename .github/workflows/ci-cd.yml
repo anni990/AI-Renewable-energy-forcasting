@@ -8,8 +8,8 @@ on:
 
 env:
   DOCKER_IMAGE_NAME: renewable-energy-app
-  AZURE_VM_RESOURCE_GROUP: your-resource-group
-  AZURE_VM_NAME: your-vm-name
+  AZURE_VM_RESOURCE_GROUP: renewable-energy-rg  # Your resource group
+  AZURE_VM_NAME: renewable-energy-vm            # Your VM name
 
 jobs:
   test:
