@@ -1,17 +1,21 @@
-# Create a simplified Dockerfile for testing
 FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install minimal dependencies
+# Install system dependencies (for pyodbc + ODBC drivers)
 RUN apt-get update && apt-get install -y \
     curl \
+    gcc \
+    g++ \
+    gnupg \
+    unixodbc \
+    unixodbc-dev \
+    libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and modify to exclude pyodbc temporarily
+# Copy requirements and install everything (including pyodbc now)
 COPY requirements.txt .
-RUN grep -v "pyodbc" requirements.txt > requirements_simple.txt && \
-    pip install --no-cache-dir -r requirements_simple.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
 COPY . .
